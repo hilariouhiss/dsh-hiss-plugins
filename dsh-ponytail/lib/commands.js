@@ -1,5 +1,6 @@
 import { createUserMessage } from "@deepseek-ai/dsh-llm";
 import { renderSkillContent } from "@deepseek-ai/dsh-skill";
+import { loadSkill, registerSkillCommands } from "@hilariouhiss/dsh-skill-kit";
 
 const LEVELS = new Set(["lite", "full", "ultra", "off"]);
 const SKILL_COMMANDS = [
@@ -40,13 +41,7 @@ export function registerCommands(ctx) {
 		input: { hint: "[lite|full|ultra|off]" },
 		handler: (invocation) => ponytailCommand(ctx, invocation),
 	});
-	for (const { name, description } of SKILL_COMMANDS) {
-		ctx.commands.register({
-			name,
-			description,
-			handler: (invocation) => skillCommand(ctx, invocation, name),
-		});
-	}
+	registerSkillCommands(ctx, SKILL_COMMANDS, "@hilariouhiss/dsh-ponytail");
 }
 
 async function ponytailCommand(ctx, invocation) {
@@ -76,36 +71,11 @@ async function ponytailCommand(ctx, invocation) {
 	return { kind: "success", text: `Ponytail mode set to ${level}.` };
 }
 
-async function skillCommand(ctx, invocation, name) {
-	const skill = await loadSkill(ctx, invocation, name);
-	if (skill === undefined) return missingSkill(name);
-	invocation.agent.followup(createUserMessage({
-		content: [{ type: "text", text: renderSkillContent(skill) }],
-		source: { kind: "skill-invocation", name, form: "instructions" },
-	}));
-	return { kind: "success", text: `Loaded ${name}.` };
-}
-
 /** Trimmed `/ponytail` argument → `lite|full|ultra|off`, bare = `full`, unknown = `undefined`. */
 export function parseLevel(rawInput) {
 	const input = (typeof rawInput === "string" ? rawInput.trim() : "").toLowerCase();
 	if (input.length === 0) return "full";
 	return LEVELS.has(input) ? input : undefined;
-}
-
-async function loadSkill(ctx, invocation, name) {
-	const agent = invocation.agent;
-	const lookup = {
-		cwd: agent?.session?.header?.cwd,
-		signal: invocation.signal,
-		scope: agent,
-	};
-	try {
-		return await ctx.skills.get(name, lookup);
-	} catch (error) {
-		if (invocation.signal?.aborted === true) throw error;
-		return undefined;
-	}
 }
 
 function missingSkill(name) {

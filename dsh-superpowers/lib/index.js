@@ -1,13 +1,17 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseFrontmatter } from "./frontmatter.js";
-import { SuperpowersSkillProvider } from "./provider.js";
+import { makeSkillProvider, parseFrontmatter } from "@hilariouhiss/dsh-skill-kit";
 
 export const name = "superpowers";
 export const inject = ["skills", "systemPrompt"];
 
 const skillsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "skills");
+const SuperpowersSkillProvider = makeSkillProvider({
+	name: "superpowers",
+	source: "superpowers-plugin",
+	skillsDir,
+});
 
 const FALLBACK_HINT = "Superpowers is active. Before any task, check whether a superpowers skill applies and, if so, invoke it with the `skill` tool first.";
 

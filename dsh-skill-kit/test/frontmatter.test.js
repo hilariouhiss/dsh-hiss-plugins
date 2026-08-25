@@ -1,31 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { isValidSkillName, parseFrontmatter } from "../lib/frontmatter.js";
 
-const skillsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "skills");
-const NAMES = ["ponytail", "ponytail-audit", "ponytail-debt", "ponytail-gain", "ponytail-help", "ponytail-review"];
-
-test("isValidSkillName accepts the bundled names", () => {
-	for (const name of NAMES) assert.equal(isValidSkillName(name), true);
+test("isValidSkillName accepts kebab-case names", () => {
+	assert.equal(isValidSkillName("ponytail"), true);
+	assert.equal(isValidSkillName("openspec-propose"), true);
 	assert.equal(isValidSkillName("Ponytail"), false);
 	assert.equal(isValidSkillName("ponytail review"), false);
 	assert.equal(isValidSkillName(""), false);
 	assert.equal(isValidSkillName(undefined), false);
 });
 
-test("every bundled SKILL.md parses with the expected name", () => {
-	for (const name of NAMES) {
-		const raw = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
-		const result = parseFrontmatter(raw, name);
-		assert.equal(result.ok, true, result.reason);
-		assert.equal(result.value.name, name);
-		assert.ok(result.value.description.length > 0, `${name} has a description`);
-		assert.ok(result.value.content.length > 0, `${name} has a body`);
-		assert.deepEqual(result.value.invocation, { modelInvocable: true, userInvocable: true });
-	}
+test("parses name, description, whenToUse, invocation, and body", () => {
+	const raw = [
+		"---",
+		"name: brainstorming",
+		'description: "Use before creative work"',
+		"whenToUse: before building anything",
+		"---",
+		"# Body",
+		"",
+	].join("\n");
+	const result = parseFrontmatter(raw, "brainstorming");
+	assert.equal(result.ok, true, result.reason);
+	assert.equal(result.value.name, "brainstorming");
+	assert.equal(result.value.whenToUse, "before building anything");
+	assert.deepEqual(result.value.invocation, { modelInvocable: true, userInvocable: true });
+	assert.equal(result.value.content, "# Body");
 });
 
 test("unknown frontmatter keys are tolerated", () => {
@@ -51,8 +52,7 @@ test("missing frontmatter fails", () => {
 });
 
 test("invalid skill name fails", () => {
-	const raw = "---\nname: Bad Name\ndescription: x\n---\nbody\n";
-	const result = parseFrontmatter(raw);
+	const result = parseFrontmatter("---\nname: Bad Name\ndescription: x\n---\nbody\n");
 	assert.equal(result.ok, false);
 	assert.match(result.reason, /invalid skill name/);
 });

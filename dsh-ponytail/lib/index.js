@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { makeSkillProvider } from "@hilariouhiss/dsh-skill-kit";
 import { registerCommands } from "./commands.js";
-import { PonytailSkillProvider } from "./provider.js";
 
 export const name = "ponytail";
 export const inject = ["skills", "systemPrompt", "commands"];
@@ -10,6 +11,13 @@ export const inject = ["skills", "systemPrompt", "commands"];
 const HINT_TEXT = [
 	"Ponytail lazy-mode is available for coding work. Before any coding task — writing, editing, refactoring, fixing, reviewing, or choosing libraries/dependencies — load the `ponytail` skill with the `skill` tool (unless already loaded) and follow it: the simplest solution that works, reuse what already exists, standard library and platform features before new dependencies, fewest files, shortest working diff. Switch intensity with /ponytail lite|full|ultra; turn off with /ponytail off or by saying \"stop ponytail\".",
 ].join("");
+
+const skillsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "skills");
+const PonytailSkillProvider = makeSkillProvider({
+	name: "ponytail",
+	source: "ponytail-plugin",
+	skillsDir,
+});
 
 /**
  * DSH plugin entry point.

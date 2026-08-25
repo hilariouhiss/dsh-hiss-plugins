@@ -1,5 +1,4 @@
-import { createUserMessage } from "@deepseek-ai/dsh-llm";
-import { renderSkillContent } from "@deepseek-ai/dsh-skill";
+import { registerSkillCommands } from "@hilariouhiss/dsh-skill-kit";
 
 /** `/opsx-*` slash command → bundled skill mapping (kebab "flat" form). */
 export const COMMANDS = [
@@ -18,50 +17,10 @@ export const COMMANDS = [
 ];
 
 /**
- * Register the twelve `/opsx-*` commands on the host `commands` registry.
- *
- * Each command injects the matching skill's rendered content as a durable user
- * message via `agent.followup` — the same mechanism `/goal` uses — so the model
- * reads the workflow instructions in its very next step.
+ * Register the twelve `/opsx-*` commands on the host `commands` registry. Each
+ * command injects the matching skill's rendered content as a durable user
+ * message via `agent.followup`.
  */
 export function registerCommands(ctx) {
-	for (const { name, skill, description } of COMMANDS) {
-		ctx.commands.register({
-			name,
-			description,
-			handler: (invocation) => skillCommand(ctx, invocation, skill),
-		});
-	}
-}
-
-async function skillCommand(ctx, invocation, name) {
-	const loaded = await loadSkill(ctx, invocation, name);
-	if (loaded === undefined) return missingSkill(name);
-	invocation.agent.followup(createUserMessage({
-		content: [{ type: "text", text: renderSkillContent(loaded) }],
-		source: { kind: "skill-invocation", name, form: "instructions" },
-	}));
-	return { kind: "success", text: `Loaded ${name}.` };
-}
-
-async function loadSkill(ctx, invocation, name) {
-	const agent = invocation.agent;
-	const lookup = {
-		cwd: agent?.session?.header?.cwd,
-		signal: invocation.signal,
-		scope: agent,
-	};
-	try {
-		return await ctx.skills.get(name, lookup);
-	} catch (error) {
-		if (invocation.signal?.aborted === true) throw error;
-		return undefined;
-	}
-}
-
-function missingSkill(name) {
-	return {
-		kind: "error",
-		text: `The "${name}" skill is not available; check that the @hilariouhiss/dsh-openspec plugin is installed and enabled.`,
-	};
+	registerSkillCommands(ctx, COMMANDS, "@hilariouhiss/dsh-openspec");
 }

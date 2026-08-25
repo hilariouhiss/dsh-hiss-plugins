@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness (dsh) 插件集合仓库。
+DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 
 ## 插件列表
 
@@ -10,28 +10,34 @@ DeepSeek Harness (dsh) 插件集合仓库。
 | [dsh-superpowers](dsh-superpowers)（npm: `@hilariouhiss/dsh-superpowers`） | Superpowers 软件开发方法论插件（brainstorming、TDD、系统化调试、subagent 驱动开发等 14 个技能 + 会话引导），源自 [obra/superpowers](https://github.com/obra/superpowers) |
 | [dsh-openspec](dsh-openspec)（npm: `@hilariouhiss/dsh-openspec`） | OpenSpec spec-driven 开发工作流插件（propose/explore/apply/archive 等 12 个技能 + `/opsx-*` 命令，需 `openspec` CLI），源自 [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) |
 
+## 共享依赖
+
+[dsh-skill-kit](dsh-skill-kit)（npm: `@hilariouhiss/dsh-skill-kit`）是三个插件共用的运行时依赖：SKILL.md frontmatter 解析、目录型 skill provider、以及 `/命令 → 技能` 的注册逻辑。它是普通 npm 包（非 dsh 插件），必须先于插件发布。
+
+## 开发
+
+```powershell
+pnpm install   # 根目录一次安装，全仓共享
+pnpm test      # 运行所有包的测试
+```
+
 ## 添加新插件
 
-新建目录 `<plugin-name>/`，复制插件源码与 `package.json`，并声明 `dsh.bundle.patch`（参见已有插件的 `cordis.patch.yml` 与 `package.json`）。
+1. 新建目录 `<plugin-name>/`，复制插件源码与 `package.json`，声明 `dsh.bundle.patch`（参见已有插件的 `cordis.patch.yml` 与 `package.json`）。
+2. 将该目录加进根目录 `pnpm-workspace.yaml` 的 `packages` 列表。
 
 ## 发布
 
-各插件在根目录有对应的便捷发布脚本。首次发布前先登录 npm（一次即可），并确保依赖已安装：
+首次登录 npm（一次即可）：在任一包目录执行 `npm login`。
+
+先发布共享依赖，再发布各插件：
 
 ```powershell
-cd dsh-ponytail
-pnpm install
-cd ..
-npm run publish:dsh-ponytail
-
-# 或发布 dsh-superpowers：
-cd dsh-superpowers
-pnpm install
-cd ..
-npm run publish:dsh-superpowers
+pnpm run publish:dsh-skill-kit
+pnpm run publish:dsh-ponytail
+pnpm run publish:dsh-superpowers
+pnpm run publish:dsh-openspec
 ```
-
-首次登录：在任一插件目录执行 `npm login`。
 
 ## 上游来源
 

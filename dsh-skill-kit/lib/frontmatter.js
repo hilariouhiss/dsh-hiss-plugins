@@ -14,8 +14,7 @@ export function isValidSkillName(name) {
  * Rules mirror `@deepseek-ai/dsh-skill-filesystem`: the first line must be
  * `---`, the YAML block ends at the next `---` line, `name` and `description`
  * are required non-empty strings, `whenToUse` is optional, and the invocation
- * policy defaults to fully invocable. Unknown frontmatter keys (for example
- * upstream ponytail's `argument-hint` and `license`) are tolerated.
+ * policy defaults to fully invocable. Unknown frontmatter keys are tolerated.
  *
  * @param {string} raw - full text of a SKILL.md file.
  * @param {string} [sourcePath] - path used only in diagnostics.

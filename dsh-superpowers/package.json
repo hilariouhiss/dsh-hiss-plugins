@@ -39,7 +39,7 @@
     "access": "public"
   },
   "dependencies": {
-    "yaml": "^2.9.0"
+    "@hilariouhiss/dsh-skill-kit": "workspace:^"
   },
   "dsh": {
     "bundle": {
