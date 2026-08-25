@@ -2,3 +2,4 @@ node_modules/
 .pnpm-store/
 .npm-cache/
 *.tgz
+dsh-openspec/OpenSpec/

@@ -8,6 +8,7 @@ DeepSeek Harness (dsh) 插件集合仓库。
 |------|------|
 | [dsh-ponytail](dsh-ponytail)（npm: `@hilariouhiss/dsh-ponytail`） | Lazy senior dev 模式插件，源自 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
 | [dsh-superpowers](dsh-superpowers)（npm: `@hilariouhiss/dsh-superpowers`） | Superpowers 软件开发方法论插件（brainstorming、TDD、系统化调试、subagent 驱动开发等 14 个技能 + 会话引导），源自 [obra/superpowers](https://github.com/obra/superpowers) |
+| [dsh-openspec](dsh-openspec)（npm: `@hilariouhiss/dsh-openspec`） | OpenSpec spec-driven 开发工作流插件（propose/explore/apply/archive 等 12 个技能 + `/opsx-*` 命令，需 `openspec` CLI），源自 [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) |
 
 ## 添加新插件
 
@@ -36,3 +37,4 @@ npm run publish:dsh-superpowers
 
 - [ponytail (DietrichGebert)](https://github.com/DietrichGebert/ponytail)：Lazy senior dev 模式，强制最简可行方案（YAGNI），全套技能与模式文档见上游仓库。
 - [superpowers (obra)](https://github.com/obra/superpowers)：完整软件开发方法论（brainstorming → 实现计划 → TDD → 系统化调试 → subagent 驱动开发 → 评审 → 收尾），14 个组合技能 + 会话引导。
+- [OpenSpec (Fission-AI)](https://github.com/Fission-AI/OpenSpec)：AI-native spec-driven 开发，先对齐规格再写代码；12 个 workflow 技能驱动 `openspec` CLI（propose/explore/apply/archive 等）。
