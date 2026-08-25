@@ -111,6 +111,6 @@ async function loadSkill(ctx, invocation, name) {
 function missingSkill(name) {
 	return {
 		kind: "error",
-		text: `The "${name}" skill is not available; check that the dsh-ponytail plugin is installed and enabled.`,
+		text: `The "${name}" skill is not available; check that the @hilariouhiss/dsh-ponytail plugin is installed and enabled.`,
 	};
 }

@@ -1,12 +1,13 @@
-# dsh-ponytail bundle patch: one self-referencing host row.
+# @hilariouhiss/dsh-ponytail bundle patch: one self-referencing host row.
 #
-# `dsh plugin --profile <name> add dsh-ponytail` installs this package into the
-# profile; because it declares `dsh.bundle.patch`, the profile manifest appends
-# it to the bundle list, and this patch is applied as a layer on boot. The row
-# resolves `dsh-ponytail` from the profile's own node_modules, so the plugin's
-# `apply(ctx)` runs in the host plane: its skill provider registers into the
-# global `skills` layer (visible to every agent preset), its system-prompt
-# section and `/ponytail*` commands register globally.
+# `dsh plugin --profile <name> add @hilariouhiss/dsh-ponytail` installs this
+# package into the profile; because it declares `dsh.bundle.patch`, the profile
+# manifest appends it to the bundle list, and this patch is applied as a layer
+# on boot. The row resolves `@hilariouhiss/dsh-ponytail` from the profile's own
+# node_modules, so the plugin's `apply(ctx)` runs in the host plane: its skill
+# provider registers into the global `skills` layer (visible to every agent
+# preset), its system-prompt section and `/ponytail*` commands register
+# globally.
 - insert:
     - id: ponytail
-      name: 'dsh-ponytail'
+      name: '@hilariouhiss/dsh-ponytail'

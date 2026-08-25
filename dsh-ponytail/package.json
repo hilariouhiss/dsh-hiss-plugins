@@ -1,5 +1,5 @@
 {
-  "name": "dsh-ponytail",
+  "name": "@hilariouhiss/dsh-ponytail",
   "version": "1.0.0",
   "description": "Ponytail — the laziest-senior-dev skill set (skills + slash commands) ported to DeepSeek Harness. The best code is the code you never wrote.",
   "keywords": [
@@ -15,7 +15,15 @@
   "author": {
     "name": "dsh-ponytail contributors"
   },
-  "homepage": "https://github.com/DietrichGebert/ponytail",
+  "homepage": "https://github.com/hilariouhiss/dsh-hiss-plugins/tree/main/dsh-ponytail",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hilariouhiss/dsh-hiss-plugins.git",
+    "directory": "dsh-ponytail"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./lib/index.js",
   "exports": {
@@ -40,7 +48,8 @@
     }
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "prepublishOnly": "npm test"
   },
   "engines": {
     "node": ">=20"

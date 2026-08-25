@@ -1,4 +1,4 @@
-# dsh-ponytail
+# @hilariouhiss/dsh-ponytail
 
 把 [ponytail](https://github.com/DietrichGebert/ponytail)（“让 AI agent 像房间里最懒的资深开发者一样思考。最好的代码是你从没写过的代码。”）移植为 DeepSeek Harness 插件。
 
@@ -24,12 +24,12 @@
 ## 安装
 
 ```powershell
-dsh plugin --profile web add C:\source_code\Other\dsh-ponytail
+dsh plugin --profile web add @hilariouhiss/dsh-ponytail
 ```
 
-然后**重启 dsh**（关闭并重新运行 `dsh --profile web`，其他 profile 同理）。
+把 `web` 换成你的 profile 名（例如 `headless`）。然后**重启 dsh**（关闭并重新运行 `dsh --profile web`，其他 profile 同理）。
 
-`dsh plugin` 会把本包安装进 profile 的 `node_modules`；因为 `package.json` 声明了 `dsh.bundle.patch`，profile 的 bundle 列表会自动追加 `dsh-ponytail`，重启后插件行自动激活。
+`dsh plugin` 会把本包安装进 profile 的 `node_modules`；因为 `package.json` 声明了 `dsh.bundle.patch`，profile 的 bundle 列表会自动追加 `@hilariouhiss/dsh-ponytail`，重启后插件行自动激活。
 
 ## 验证
 
@@ -49,7 +49,7 @@ dsh plugin --profile web add C:\source_code\Other\dsh-ponytail
 ## 卸载
 
 ```powershell
-dsh plugin --profile web remove dsh-ponytail
+dsh plugin --profile web remove @hilariouhiss/dsh-ponytail
 ```
 
 然后重启 dsh。
@@ -76,6 +76,24 @@ skills/             6 个技能目录(上游 SKILL.md 逐字复制)
 cordis.patch.yml    bundle patch:插入本插件的宿主行
 test/               node:test 单元测试
 ```
+
+## 发布（给维护者）
+
+```powershell
+cd dsh-ponytail
+pnpm install
+pnpm test
+npm login       # 首次发布前登录 npm
+npm publish     # publishConfig.access 已设为 public
+```
+
+发布后其他用户即可：
+
+```powershell
+dsh plugin --profile web add @hilariouhiss/dsh-ponytail
+```
+
+`prepublishOnly` 会在每次发布前自动运行 `npm test`；发布新版本前记得递增 `package.json` 的 `version`。
 
 ## 许可与来源
 
