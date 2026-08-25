@@ -1,6 +1,6 @@
 {
   "name": "@hilariouhiss/dsh-openspec",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "OpenSpec — spec-driven development workflow ported to DeepSeek Harness (12 workflow skills + /opsx-* slash commands). Agree on what to build before any code is written.",
   "keywords": [
     "dsh",
