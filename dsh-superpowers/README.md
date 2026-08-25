@@ -1,4 +1,4 @@
-# dsh-superpowers
+# @hilariouhiss/dsh-superpowers
 
 把 [superpowers](https://github.com/obra/superpowers)（“让编码 agent 拥有超能力”的完整软件开发方法论：头脑风暴 → 实现计划 → TDD → 系统化调试 → subagent 驱动开发 → 代码评审 → 收尾）移植为 DeepSeek Harness 插件。
 
@@ -35,7 +35,7 @@
 ## 安装
 
 ```powershell
-dsh plugin --profile web add dsh-superpowers
+dsh plugin --profile web add @hilariouhiss/dsh-superpowers
 ```
 
 把 `web` 换成你的 profile 名（例如 `headless`）。然后**重启 dsh**（bundle 层在 profile 启动时加载）。
@@ -63,7 +63,7 @@ dsh web --dump-config
 ## 卸载
 
 ```powershell
-dsh plugin --profile web remove dsh-superpowers
+dsh plugin --profile web remove @hilariouhiss/dsh-superpowers
 ```
 
 然后重启 dsh。
@@ -100,7 +100,7 @@ npm login       # 首次发布前登录 npm
 npm publish     # publishConfig.access 已设为 public
 ```
 
-发布后其他用户即可 `dsh plugin --profile web add dsh-superpowers`。`prepublishOnly` 会在每次发布前自动运行 `npm test`；发布新版本前记得递增 `package.json` 的 `version`。`files` 白名单确保只发布 `lib/`、`skills/`、`cordis.patch.yml`、`README.md`、`LICENSE`（不含 `test/` 与本地开发产物）。
+发布后其他用户即可 `dsh plugin --profile web add @hilariouhiss/dsh-superpowers`。`prepublishOnly` 会在每次发布前自动运行 `npm test`；发布新版本前记得递增 `package.json` 的 `version`。`files` 白名单确保只发布 `lib/`、`skills/`、`cordis.patch.yml`、`README.md`、`LICENSE`（不含 `test/` 与本地开发产物）。
 
 ## 更新技能
 

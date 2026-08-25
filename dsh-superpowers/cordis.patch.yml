@@ -1,12 +1,12 @@
-# dsh-superpowers bundle patch: one self-referencing host row.
+# @hilariouhiss/dsh-superpowers bundle patch: one self-referencing host row.
 #
-# `dsh plugin --profile <name> add dsh-superpowers` installs this package into
-# the profile; because it declares `dsh.bundle.patch`, the profile manifest
-# appends it to the bundle list, and this patch is applied as a layer on boot.
-# The row resolves `dsh-superpowers` from the profile's own node_modules, so the
-# plugin's `apply(ctx)` runs in the host plane: its skill provider registers
-# into the global `skills` layer and its bootstrap system-prompt section
-# registers globally (visible to every agent preset).
+# `dsh plugin --profile <name> add @hilariouhiss/dsh-superpowers` installs this
+# package into the profile; because it declares `dsh.bundle.patch`, the profile
+# manifest appends it to the bundle list, and this patch is applied as a layer
+# on boot. The row resolves `@hilariouhiss/dsh-superpowers` from the profile's
+# own node_modules, so the plugin's `apply(ctx)` runs in the host plane: its
+# skill provider registers into the global `skills` layer and its bootstrap
+# system-prompt section registers globally (visible to every agent preset).
 - insert:
     - id: superpowers
-      name: 'dsh-superpowers'
+      name: '@hilariouhiss/dsh-superpowers'

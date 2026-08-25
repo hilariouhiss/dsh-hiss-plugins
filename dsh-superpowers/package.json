@@ -1,5 +1,5 @@
 {
-  "name": "dsh-superpowers",
+  "name": "@hilariouhiss/dsh-superpowers",
   "version": "1.0.0",
   "description": "Superpowers skills + bootstrap ported to DeepSeek Harness — planning, TDD, debugging, and delivery workflows for coding agents.",
   "keywords": [
@@ -14,6 +14,12 @@
   ],
   "author": {
     "name": "dsh-superpowers contributors"
+  },
+  "homepage": "https://github.com/hilariouhiss/dsh-hiss-plugins/tree/main/dsh-superpowers",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hilariouhiss/dsh-hiss-plugins.git",
+    "directory": "dsh-superpowers"
   },
   "license": "MIT",
   "type": "module",
@@ -41,7 +47,7 @@
     }
   },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test",
     "prepublishOnly": "npm test"
   },
   "engines": {
