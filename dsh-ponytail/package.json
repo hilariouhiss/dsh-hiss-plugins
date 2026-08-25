@@ -1,0 +1,48 @@
+{
+  "name": "dsh-ponytail",
+  "version": "1.0.0",
+  "description": "Ponytail — the laziest-senior-dev skill set (skills + slash commands) ported to DeepSeek Harness. The best code is the code you never wrote.",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "ponytail",
+    "skill",
+    "yagni",
+    "lazy"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "dsh-ponytail contributors"
+  },
+  "homepage": "https://github.com/DietrichGebert/ponytail",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "skills/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@deepseek-ai/dsh-llm": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-skill": "0.1.1-rc.2",
+    "yaml": "^2.9.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

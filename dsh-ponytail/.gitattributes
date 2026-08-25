@@ -1,0 +1,4 @@
+# Normalize line endings to LF across platforms: the bundled SKILL.md files and
+# sources are authored as LF, and normalizing keeps working-tree content stable
+# on Windows checkouts.
+* text=auto eol=lf
