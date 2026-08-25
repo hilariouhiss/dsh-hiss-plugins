@@ -4,6 +4,7 @@
   "private": true,
   "description": "DeepSeek Harness (dsh) 插件集合仓库。",
   "scripts": {
-    "publish:dsh-ponytail": "cd dsh-ponytail && npm publish"
+    "publish:dsh-ponytail": "cd dsh-ponytail && npm publish",
+    "publish:dsh-superpowers": "cd dsh-superpowers && npm publish"
   }
 }
