@@ -1,0 +1,50 @@
+{
+  "name": "dsh-superpowers",
+  "version": "1.0.0",
+  "description": "Superpowers skills + bootstrap ported to DeepSeek Harness — planning, TDD, debugging, and delivery workflows for coding agents.",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "superpowers",
+    "skill",
+    "tdd",
+    "debugging",
+    "workflow"
+  ],
+  "author": {
+    "name": "dsh-superpowers contributors"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "skills/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
