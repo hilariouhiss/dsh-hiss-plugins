@@ -48,6 +48,24 @@ dsh plugin --profile web remove @hilariouhiss/dsh-codegraph
 
 然后重启 dsh。
 
+## 已知问题与限制
+
+当前实现是「MCP server 直连 + 静态引导」的最小可行集成，已知有以下问题：
+
+1. **模型必须每次手动传 `projectPath`（最大痛点）**：DSH 宿主是单实例、多会话（多工作区），而 mcp-client 的 `cwd` 是宿主面静态配置（`process.cwd()`）。`codegraph_explore` 无法默认指向「当前会话工作区」，模型每次调用都要自己填 `projectPath` = 当前工作区。若漏填，会查询 server 的默认目录（通常没有 `.codegraph/` 索引），返回误导性的「无索引/请用内置工具」提示。理想做法是包装一个能自动注入会话 `cwd` 的工具，或让 server 按会话定位项目。
+
+2. **自动同步只覆盖 server 默认目录的项目**：codegraph 的文件 watcher 只持续监视 MCP server 启动 `cwd` 对应的项目；经 `projectPath` 查询的其它项目没有持续 watcher，索引不会随编辑自动刷新，需手动 `codegraph sync` 保持最新（本插件未做任何同步封装）。
+
+3. **不自动建索引**：每个项目必须手动 `codegraph init` 一次；插件不代建。未初始化时工具返回「无索引」引导而非真实结果。
+
+4. **依赖全局 `codegraph` CLI**：插件只负责连 MCP，不安装、不校验 `codegraph`。若未全局安装，mcp-client 启动失败并重试后静默注销工具，模型看不到原因（只能查 DSH 日志）。
+
+5. **引导是静态文本**：`systemPrompt.section` 只能写死「传 `projectPath` = 你的工作区」，无法把当前工作区的绝对路径动态注入提示词。
+
+6. **未端到端验证**：尚未在真实 profile 里走完 `dsh plugin add` → 重启 → 实际调用 `mcp__codegraph__codegraph_explore` 的闭环（当前仅单元测试 + 按 codegraph 官方 stdio 配置对齐）。
+
+7. **遥测默认开启**：codegraph 的匿名遥测默认开（不采集代码/路径/查询内容）；本插件未关闭。可用 `codegraph telemetry off` 或环境变量 `CODEGRAPH_TELEMETRY=0` 关闭。
+
 ## 开发
 
 ```powershell
