@@ -1,6 +1,6 @@
 {
   "name": "@hilariouhiss/dsh-superpowers",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Superpowers skills + bootstrap ported to DeepSeek Harness — planning, TDD, debugging, and delivery workflows for coding agents.",
   "keywords": [
     "dsh",

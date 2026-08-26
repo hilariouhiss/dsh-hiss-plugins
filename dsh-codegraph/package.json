@@ -1,6 +1,6 @@
 {
   "name": "@hilariouhiss/dsh-codegraph",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CodeGraph — semantic code intelligence (MCP) for DeepSeek Harness. Adds codegraph_explore so agents answer structural code questions from a pre-built code graph.",
   "keywords": [
     "dsh",

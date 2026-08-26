@@ -1,6 +1,6 @@
 {
   "name": "@hilariouhiss/dsh-skill-kit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shared kit for @hilariouhiss/dsh-* plugins: SKILL.md frontmatter parsing, a directory skill provider, and skill slash-command registration.",
   "keywords": [
     "dsh",
