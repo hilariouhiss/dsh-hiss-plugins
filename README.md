@@ -40,9 +40,3 @@ pnpm run publish:dsh-ponytail
 pnpm run publish:dsh-superpowers
 pnpm run publish:dsh-openspec
 ```
-
-## 上游来源
-
-- [ponytail (DietrichGebert)](https://github.com/DietrichGebert/ponytail)：Lazy senior dev 模式，强制最简可行方案（YAGNI），全套技能与模式文档见上游仓库。
-- [superpowers (obra)](https://github.com/obra/superpowers)：完整软件开发方法论（brainstorming → 实现计划 → TDD → 系统化调试 → subagent 驱动开发 → 评审 → 收尾），14 个组合技能 + 会话引导。
-- [OpenSpec (Fission-AI)](https://github.com/Fission-AI/OpenSpec)：AI-native spec-driven 开发，先对齐规格再写代码；12 个 workflow 技能驱动 `openspec` CLI（propose/explore/apply/archive 等）。
