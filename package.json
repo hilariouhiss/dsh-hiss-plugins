@@ -9,6 +9,7 @@
     "publish:dsh-ponytail": "pnpm --filter @hilariouhiss/dsh-ponytail publish",
     "publish:dsh-superpowers": "pnpm --filter @hilariouhiss/dsh-superpowers publish",
     "publish:dsh-openspec": "pnpm --filter @hilariouhiss/dsh-openspec publish",
-    "publish:dsh-colgrep": "pnpm --filter @hilariouhiss/dsh-colgrep publish"
+    "publish:dsh-colgrep": "pnpm --filter @hilariouhiss/dsh-colgrep publish",
+    "publish:dsh-codegraph": "pnpm --filter @hilariouhiss/dsh-codegraph publish"
   }
 }

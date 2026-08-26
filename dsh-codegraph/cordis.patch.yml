@@ -1,0 +1,12 @@
+# @hilariouhiss/dsh-codegraph bundle patch: one self-referencing host row.
+#
+# `dsh plugin --profile <name> add @hilariouhiss/dsh-codegraph` installs this
+# package into the profile; because it declares `dsh.bundle.patch`, the profile
+# manifest appends it to the bundle list, and this patch is applied as a layer
+# on boot. The row resolves `@hilariouhiss/dsh-codegraph` from the profile's own
+# node_modules, so the plugin's `apply(ctx)` runs in the host plane: it loads
+# the DSH MCP client bridge for the CodeGraph server (registering
+# `mcp__codegraph__*` tools globally) and injects usage guidance.
+- insert:
+    - id: codegraph
+      name: '@hilariouhiss/dsh-codegraph'

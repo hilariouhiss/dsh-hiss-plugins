@@ -4,3 +4,4 @@ packages:
   - "dsh-openspec"
   - "dsh-skill-kit"
   - "dsh-colgrep"
+  - "dsh-codegraph"
