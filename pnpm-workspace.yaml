@@ -3,3 +3,4 @@ packages:
   - "dsh-superpowers"
   - "dsh-openspec"
   - "dsh-skill-kit"
+  - "dsh-colgrep"

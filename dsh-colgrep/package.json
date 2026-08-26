@@ -1,0 +1,54 @@
+{
+  "name": "@hilariouhiss/dsh-colgrep",
+  "version": "1.0.0",
+  "description": "colgrep — semantic code search (ColBERT multi-vector) for DeepSeek Harness. Adds a `colgrep` tool that finds code by meaning, not exact text.",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "colgrep",
+    "semantic-search",
+    "code-search",
+    "colbert"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "dsh-colgrep contributors"
+  },
+  "homepage": "https://github.com/hilariouhiss/dsh-hiss-plugins/tree/main/dsh-colgrep",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hilariouhiss/dsh-hiss-plugins.git",
+    "directory": "dsh-colgrep"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@deepseek-ai/dsh-tools": "0.1.1-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

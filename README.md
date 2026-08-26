@@ -9,6 +9,7 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 | [dsh-ponytail](dsh-ponytail)（npm: `@hilariouhiss/dsh-ponytail`） | Lazy senior dev 模式插件，源自 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
 | [dsh-superpowers](dsh-superpowers)（npm: `@hilariouhiss/dsh-superpowers`） | Superpowers 软件开发方法论插件（brainstorming、TDD、系统化调试、subagent 驱动开发等 14 个技能 + 会话引导），源自 [obra/superpowers](https://github.com/obra/superpowers) |
 | [dsh-openspec](dsh-openspec)（npm: `@hilariouhiss/dsh-openspec`） | OpenSpec spec-driven 开发工作流插件（propose/explore/apply/archive 等 12 个技能 + `/opsx-*` 命令，需 `openspec` CLI），源自 [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) |
+| [dsh-colgrep](dsh-colgrep)（npm: `@hilariouhiss/dsh-colgrep`） | colgrep 语义代码检索插件（`colgrep` 工具，按含义而非精确文本找代码，需 `colgrep` CLI），源自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid) |
 
 ## 共享依赖
 

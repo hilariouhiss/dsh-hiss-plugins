@@ -1,0 +1,12 @@
+# @hilariouhiss/dsh-colgrep bundle patch: one self-referencing host row.
+#
+# `dsh plugin --profile <name> add @hilariouhiss/dsh-colgrep` installs this
+# package into the profile; because it declares `dsh.bundle.patch`, the profile
+# manifest appends it to the bundle list, and this patch is applied as a layer
+# on boot. The row resolves `@hilariouhiss/dsh-colgrep` from the profile's own
+# node_modules, so the plugin's `apply(ctx)` runs in the host plane: it
+# registers the `colgrep` model tool into the global `tools` layer (visible to
+# every agent preset).
+- insert:
+    - id: colgrep
+      name: '@hilariouhiss/dsh-colgrep'
