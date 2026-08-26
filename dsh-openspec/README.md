@@ -75,10 +75,8 @@ pnpm test
 
 ```
 lib/index.js        插件入口:apply(ctx) 注册 provider + 提示词 section + 12 命令
-lib/provider.js     全局层技能 provider(扫描 skills/ 目录)
-lib/frontmatter.js  YAML frontmatter 解析(容忍上游的 allowed-tools/metadata 等键)
 lib/commands.js     12 个 /opsx-* 命令
-skills/             12 个技能目录(上游 SKILL.md 逐字复制)
+skills/             12 个技能目录(上游 SKILL.md 逐字复制，含 allowed-tools/metadata 等键)
 cordis.patch.yml    bundle patch:插入本插件的宿主行
 test/               node:test 单元测试
 OpenSpec/           上游 clone(参考用,不发布)

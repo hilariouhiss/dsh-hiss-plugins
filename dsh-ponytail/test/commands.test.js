@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseLevel, registerCommands } from "../lib/commands.js";
+import { currentMode, parseLevel, registerCommands } from "../lib/commands.js";
 
 function makeContext(followups, skills) {
 	const definitions = [];
@@ -88,6 +88,16 @@ test("/ponytail off injects a revert notice and skips skill load", async () => {
 	assert.equal(result.kind, "success");
 	assert.equal(loaded, false);
 	assert.ok(followups[0].content[0].text.includes("revert to normal mode"));
+});
+
+test("/ponytail off records the session mode", async () => {
+	const followups = [];
+	const { ctx, definitions } = makeContext(followups, {});
+	registerCommands(ctx);
+	const handler = definitions.find((definition) => definition.name === "ponytail").handler;
+	const ag = agent(followups);
+	await handler({ rawInput: "off", agent: ag, signal: undefined });
+	assert.equal(currentMode(ag, "full"), "off");
 });
 
 test("/ponytail rejects an invalid level", async () => {

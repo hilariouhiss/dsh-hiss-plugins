@@ -18,4 +18,6 @@ test("apply registers provider and bootstrap section", () => {
 	assert.equal(calls.sections.length, 1);
 	assert.equal(calls.sections[0].name, "superpowers:adoption");
 	assert.ok(calls.sections[0].text.includes("<EXTREMELY_IMPORTANT>"));
+	assert.ok(calls.sections[0].text.includes("check whether a superpowers skill applies"));
+	assert.ok(!calls.sections[0].text.includes("<SUBAGENT-STOP>"), "no longer embeds the full using-superpowers body");
 });

@@ -20,6 +20,9 @@ export function buildArgs(args) {
 	const command = args.command || "search";
 	const argv = ["colgrep"];
 	if (command === "search") {
+		if (typeof args.query !== "string" || args.query.trim() === "") {
+			throw new Error("query must be a non-empty string");
+		}
 		argv.push("--json", "--color", "never", "-y");
 		if (args.no_update) argv.push("--no-update");
 		argv.push("-k", String(args.top_k ? Number(args.top_k) : 15));
@@ -77,7 +80,7 @@ export function renderOutput(value) {
 			}
 		});
 	} else if (value.command === "search") {
-		lines.push(`colgrep search failed (ok=${value.ok})`);
+		lines.push(value.ok ? "colgrep search returned unparseable output (ok=true)" : "colgrep search failed (ok=false)");
 		if (value.stderr) lines.push(`[stderr]\n${value.stderr}`);
 		else if (value.stdout) lines.push(`[stdout]\n${value.stdout}`);
 	} else {
@@ -144,10 +147,16 @@ export function apply(ctx) {
 			} catch {
 				parsed = null;
 			}
+			let results = null;
 			if (Array.isArray(parsed)) {
-				return { ...common, query: args.query, count: parsed.length, results: normalizeResults(parsed) };
+				results = normalizeResults(parsed);
+			} else if (parsed && typeof parsed === "object" && Array.isArray(parsed.results)) {
+				results = normalizeResults(parsed.results);
 			}
-			return { ...common, query: args.query, results: null, stdout, stderr };
+			if (results === null) {
+				return { ...common, query: args.query, results: null, stdout, stderr };
+			}
+			return { ...common, query: args.query, count: results.length, results };
 		},
 	}));
 }

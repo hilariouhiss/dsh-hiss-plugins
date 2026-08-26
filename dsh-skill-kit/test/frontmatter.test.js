@@ -61,3 +61,16 @@ test("name/description required", () => {
 	assert.equal(parseFrontmatter("---\nname: x\n---\nbody\n").ok, false);
 	assert.equal(parseFrontmatter("---\ndescription: x\n---\nbody\n").ok, false);
 });
+
+test("legacy invocation keys are rejected", () => {
+	const result = parseFrontmatter("---\nname: x\ndescription: d\ndisableModelInvocation: true\n---\nbody\n", "x");
+	assert.equal(result.ok, false);
+	assert.match(result.reason, /disableModelInvocation.*disable-model-invocation/);
+});
+
+test("metadata frontmatter is surfaced", () => {
+	const raw = ["---", "name: x", "description: d", "metadata:", "  author: me", "  version: \"1.0\"", "---", "body", ""].join("\n");
+	const result = parseFrontmatter(raw);
+	assert.equal(result.ok, true);
+	assert.deepEqual(result.value.metadata, { author: "me", version: "1.0" });
+});

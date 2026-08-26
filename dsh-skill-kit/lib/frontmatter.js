@@ -64,6 +64,7 @@ export function parseFrontmatter(raw, sourcePath) {
 			description,
 			...optionalString(data, "whenToUse"),
 			invocation,
+			...optionalMetadata(data),
 			content: raw.slice(closing.bodyStart).trim(),
 		},
 	};
@@ -100,11 +101,23 @@ function optionalString(data, key) {
 	return typeof value === "string" && value.length > 0 ? { [key]: value } : {};
 }
 
+function optionalMetadata(data) {
+	const value = data.metadata;
+	return typeof value === "object" && value !== null && !Array.isArray(value) ? { metadata: value } : {};
+}
+
 function parseInvocation(data) {
+	rejectLegacyInvocationKey(data, "disableModelInvocation", "disable-model-invocation");
+	rejectLegacyInvocationKey(data, "modelInvocable", "disable-model-invocation");
+	rejectLegacyInvocationKey(data, "userInvocable", "user-invocable");
 	return {
 		modelInvocable: frontmatterBoolean(data, "disable-model-invocation") !== true,
 		userInvocable: frontmatterBoolean(data, "user-invocable") !== false,
 	};
+}
+
+function rejectLegacyInvocationKey(data, legacy, canonical) {
+	if (Object.hasOwn(data, legacy)) throw new Error(`frontmatter field "${legacy}" is unsupported; use "${canonical}"`);
 }
 
 function frontmatterBoolean(data, key) {

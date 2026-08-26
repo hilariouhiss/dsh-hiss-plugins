@@ -49,7 +49,10 @@ test("apply registers the usage guidance section", () => {
 	assert.equal(captures.sections.length, 1);
 	const section = captures.sections[0];
 	assert.equal(section.name, "codegraph:guidance");
-	assert.ok(section.text.includes("mcp__codegraph__codegraph_explore"), "names the explore tool");
-	assert.ok(section.text.includes("projectPath"), "tells the agent to pass projectPath");
-	assert.ok(section.text.includes("codegraph init"), "points at the init prerequisite");
+	assert.equal(typeof section.text, "function");
+	const text = section.text({ scope: { session: { header: { cwd: "C:/project" } } } });
+	assert.ok(text.includes("mcp__codegraph__codegraph_explore"), "names the explore tool");
+	assert.ok(text.includes("projectPath"), "tells the agent to pass projectPath");
+	assert.ok(text.includes("codegraph init"), "points at the init prerequisite");
+	assert.ok(text.includes("C:/project"), "injects the current workspace path");
 });

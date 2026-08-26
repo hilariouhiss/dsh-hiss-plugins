@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseFrontmatter } from "./frontmatter.js";
+import { BUNDLED_SKILL_RANK } from "@deepseek-ai/dsh-skill";
 
 /**
  * Build a global-layer skill provider class that reads one `skills/` directory
@@ -11,7 +12,7 @@ import { parseFrontmatter } from "./frontmatter.js";
  *
  * @param {{ name: string, source: string, skillsDir: string, rank?: number }} options
  */
-export function makeSkillProvider({ name, source, skillsDir, rank = 350 }) {
+export function makeSkillProvider({ name, source, skillsDir, rank = BUNDLED_SKILL_RANK }) {
 	return class SkillProvider {
 		name = name;
 		#ctx;
@@ -19,9 +20,6 @@ export function makeSkillProvider({ name, source, skillsDir, rank = 350 }) {
 
 		constructor(ctx, control) {
 			this.#ctx = ctx;
-			// Nothing persistent to dispose: reads are stateless. Wire the signal
-			// for symmetry with the provider contract and future caching.
-			control.signal.addEventListener("abort", () => {}, { once: true });
 		}
 
 		/** @returns {Promise<{ candidates: object[], complete: boolean }>} */
@@ -47,6 +45,7 @@ export function makeSkillProvider({ name, source, skillsDir, rank = 350 }) {
 					description: skill.description,
 					...(skill.whenToUse !== undefined ? { whenToUse: skill.whenToUse } : {}),
 					invocation: skill.invocation,
+					...(skill.metadata !== undefined ? { metadata: skill.metadata } : {}),
 					source,
 					rank,
 					provider: name,
@@ -70,6 +69,7 @@ export function makeSkillProvider({ name, source, skillsDir, rank = 350 }) {
 				description: skill.description,
 				...(skill.whenToUse !== undefined ? { whenToUse: skill.whenToUse } : {}),
 				invocation: skill.invocation,
+				...(skill.metadata !== undefined ? { metadata: skill.metadata } : {}),
 				source,
 				provider: name,
 				path: locator.path,

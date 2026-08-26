@@ -61,6 +61,11 @@ test("buildArgs rejects an unknown command", () => {
 	assert.throws(() => buildArgs({ command: "bogus" }), /command must be one of/);
 });
 
+test("buildArgs rejects an empty or blank query", () => {
+	assert.throws(() => buildArgs({ query: "" }), /non-empty/);
+	assert.throws(() => buildArgs({ query: "   " }), /non-empty/);
+});
+
 test("stripPathPrefix removes the Windows long-path prefix", () => {
 	assert.equal(stripPathPrefix("\\\\?\\C:\\ws\\a.rs"), "C:\\ws\\a.rs");
 	assert.equal(stripPathPrefix("C:\\ws\\a.rs"), "C:\\ws\\a.rs");
@@ -134,4 +139,24 @@ test("apply registers colgrep and execute shells out with a workspace-local inde
 	assert.equal(value.count, 1);
 	assert.equal(value.results[0].file, "C:\\workspace\\src\\main.rs");
 	assert.equal(value.results[0].score, 2.1);
+});
+
+test("execute accepts object-shaped JSON results", async () => {
+	const unitFile = "\\\\?\\C:\\workspace\\src\\lib.rs";
+	const captures = {
+		runResult: {
+			exitCode: 0,
+			timedOut: false,
+			aborted: false,
+			stdout: { text: JSON.stringify({ results: [{ unit: { file: unitFile, name: "lib", line: 2, end_line: 3, language: "rust", unit_type: "function", signature: "fn lib()" }, score: 0.5 }] }) },
+			stderr: { text: "" },
+		},
+	};
+	apply(makeContext(captures));
+
+	const value = await captures.definition.execute({ query: "thing" }, mockExec());
+
+	assert.equal(value.ok, true);
+	assert.equal(value.count, 1);
+	assert.equal(value.results[0].file, "C:\\workspace\\src\\lib.rs");
 });

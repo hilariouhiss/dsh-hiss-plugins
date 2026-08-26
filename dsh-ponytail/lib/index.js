@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeSkillProvider } from "@hilariouhiss/dsh-skill-kit";
-import { registerCommands } from "./commands.js";
+import { registerCommands, currentMode } from "./commands.js";
 
 export const name = "ponytail";
 export const inject = ["skills", "systemPrompt", "commands"];
@@ -29,14 +29,12 @@ const PonytailSkillProvider = makeSkillProvider({
 export function apply(ctx) {
 	ctx.skills.registerProvider((control) => new PonytailSkillProvider(ctx, control));
 
-	const mode = resolveDefaultMode();
-	if (mode !== "off") {
-		ctx.systemPrompt.section({
-			name: "ponytail:adoption",
-			order: 5,
-			text: HINT_TEXT,
-		});
-	}
+	const defaultMode = resolveDefaultMode();
+	ctx.systemPrompt.section({
+		name: "ponytail:adoption",
+		order: 5,
+		text: (context) => currentMode(context.scope, defaultMode) === "off" ? "" : HINT_TEXT,
+	});
 
 	registerCommands(ctx);
 }

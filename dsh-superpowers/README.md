@@ -27,7 +27,7 @@
 
 行为要点：
 
-- **会话引导（bootstrap）**：通过 `systemPrompt.section` 在每个回合注入 `using-superpowers` 的强制指令（“只要技能有 1% 可能适用，就必须调用”）。与上游的 SessionStart hook 不同，DSH 版每个回合重新组装，因此 compaction 后引导依然有效。
+- **会话引导（bootstrap）**：通过 `systemPrompt.section` 在每个回合注入一条精简强制指令（“只要技能有 1% 可能适用，就必须调用”），完整正文仍保留在 `using-superpowers` 技能里、按需通过 `skill` 工具加载。与上游的 SessionStart hook 不同，DSH 版每个回合重新组装，因此 compaction 后引导依然有效。
 - **自动触发**：技能由模型按 `available_skills` 目录 + 引导自动选择，无需手动开启，也没有斜杠命令。
 - **相对资源**：provider 把每个技能目录设为 `resourceBase`，技能正文里的相对引用（`implementer-prompt.md`、`references/*.md`、`scripts/*`、`examples/*`）都能通过 read 工具解析。
 - **DSH 工具映射**：`using-superpowers/references/dsh-tools.md` 把技能里的动作（调用技能、派发 subagent、建 todo、跑命令）映射到 DSH 的 `skill` / `subagent` / `todo_write` / shell 工具。
@@ -83,8 +83,6 @@ pnpm test
 
 ```
 lib/index.js        插件入口 apply(ctx)：注册 provider + 注入引导 section
-lib/provider.js     全局层技能 provider（扫描 skills/ 目录）
-lib/frontmatter.js  YAML frontmatter 解析
 skills/             14 个技能目录（上游逐字复制，含 references/scripts/examples）
 cordis.patch.yml    bundle patch：插入本插件的宿主行
 test/               node:test 单元测试
@@ -110,4 +108,4 @@ npm publish     # publishConfig.access 已设为 public
 
 本插件为 MIT 许可。技能内容（`skills/**`）逐字来自 [obra/superpowers](https://github.com/obra/superpowers) v6.3.0（© Jesse Vincent，MIT）。DSH 适配仅新增 `using-superpowers/references/dsh-tools.md` 及该技能 "Platform Adaptation" 里的一行。
 
-> 提示：本插件通过 `ctx.skills` 的 `SkillProvider` 接口（结构型）注册技能，并内联了技能名校验规则；若日后升级 dsh 后该接口发生变化，需同步更新 `lib/provider.js` / `lib/frontmatter.js`。
+> 提示：本插件通过 `@hilariouhiss/dsh-skill-kit` 的 `makeSkillProvider` 注册技能；若日后升级 dsh 后 `SkillProvider` 接口或技能 frontmatter 规则变化，需同步更新 `dsh-skill-kit` 的 `lib/provider.js` / `lib/frontmatter.js`。

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { BUNDLED_SKILL_RANK } from "@deepseek-ai/dsh-skill";
 import { makeSkillProvider } from "../lib/provider.js";
 
 const ctx = { logger: { warn() {} } };
@@ -32,7 +33,7 @@ test("list returns candidates sorted by name", async () => {
 		for (const candidate of result.candidates) {
 			assert.equal(candidate.provider, "test");
 			assert.equal(candidate.source, "test-plugin");
-			assert.ok(Number.isFinite(candidate.rank));
+			assert.equal(candidate.rank, BUNDLED_SKILL_RANK);
 			assert.ok(candidate.locator.path.endsWith("SKILL.md"));
 			assert.equal(candidate.resourceBase.kind, "directory");
 		}

@@ -9,8 +9,13 @@ const GUIDANCE = [
 	"call `mcp__codegraph__codegraph_explore` directly instead of grepping or reading files one by one; ",
 	"it returns the relevant symbols' source, call paths, and impact in one call. ",
 	"Always pass `projectPath` as the workspace directory you are working in (or a subdirectory that has a `.codegraph/` index). ",
-	"If the tool reports no index, tell the user to run `codegraph init` in that project first.",
+	"If the tool reports no index, tell the user to run `codegraph init` in that project first. ",
+	"If the `mcp__codegraph__*` tool is not listed, the codegraph CLI is not installed or failed to start — check the DSH host logs.",
 ].join("");
+
+function guidanceFor(cwd) {
+	return `${GUIDANCE} Current workspace: ${cwd}; pass it as \`projectPath\`.`;
+}
 
 /**
  * Stdio config for the CodeGraph MCP server. `command` resolves `codegraph`
@@ -36,10 +41,15 @@ export function codegraphConfig(cwd = process.cwd()) {
 
 /**
  * DSH plugin entry point. Loads the DSH MCP client bridge for the CodeGraph
- * server (registering `mcp__codegraph__*` tools globally) and injects a small
- * usage guidance section so agents prefer it and pass `projectPath`.
+ * server (registering `mcp__codegraph__*` tools globally) and injects usage
+ * guidance whose text carries the current session's workspace path, so agents
+ * prefer it and pass the right `projectPath`.
  */
 export function apply(ctx) {
 	ctx.plugin({ inject: mcpClientInject, apply: mcpClientApply }, codegraphConfig());
-	ctx.systemPrompt.section({ name: "codegraph:guidance", order: 100, text: GUIDANCE });
+	ctx.systemPrompt.section({
+		name: "codegraph:guidance",
+		order: 100,
+		text: (context) => guidanceFor(context.scope?.session?.header?.cwd ?? process.cwd()),
+	});
 }

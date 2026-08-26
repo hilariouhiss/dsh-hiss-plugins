@@ -3,6 +3,16 @@ import { renderSkillContent } from "@deepseek-ai/dsh-skill";
 import { loadSkill, registerSkillCommands } from "@hilariouhiss/dsh-skill-kit";
 
 const LEVELS = new Set(["lite", "full", "ultra", "off"]);
+const modes = new WeakMap();
+
+export function currentMode(agent, fallback) {
+	return modes.get(agent) ?? fallback;
+}
+
+export function setMode(agent, level) {
+	modes.set(agent, level);
+}
+
 const SKILL_COMMANDS = [
 	{
 		name: "ponytail-review",
@@ -50,6 +60,7 @@ async function ponytailCommand(ctx, invocation) {
 		return { kind: "error", text: "Usage: /ponytail [lite|full|ultra|off]" };
 	}
 	if (level === "off") {
+		setMode(invocation.agent, "off");
 		invocation.agent.followup(createUserMessage({
 			content: [{
 				type: "text",
@@ -61,6 +72,7 @@ async function ponytailCommand(ctx, invocation) {
 	}
 	const skill = await loadSkill(ctx, invocation, "ponytail");
 	if (skill === undefined) return missingSkill("ponytail");
+	setMode(invocation.agent, level);
 	invocation.agent.followup(createUserMessage({
 		content: [{
 			type: "text",

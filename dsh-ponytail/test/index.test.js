@@ -70,16 +70,19 @@ test("apply registers provider, adoption hint, and six commands", () => {
 		assert.equal(captures.providers.length, 1);
 		assert.equal(captures.sections.length, 1);
 		assert.equal(captures.sections[0].name, "ponytail:adoption");
+		assert.equal(typeof captures.sections[0].text, "function");
+		assert.ok(captures.sections[0].text({ scope: undefined }).includes("Ponytail lazy-mode"));
 		assert.equal(captures.commands.length, 6);
 	});
 });
 
-test("apply skips the adoption hint when the default mode is off", () => {
+test("apply renders an empty adoption hint when the default mode is off", () => {
 	withEnv("off", () => {
 		const captures = { providers: [], sections: [], commands: [] };
 		apply(makeContext(captures));
 		assert.equal(captures.providers.length, 1);
-		assert.equal(captures.sections.length, 0);
+		assert.equal(captures.sections.length, 1);
+		assert.equal(captures.sections[0].text({ scope: undefined }), "");
 		assert.equal(captures.commands.length, 6);
 	});
 });

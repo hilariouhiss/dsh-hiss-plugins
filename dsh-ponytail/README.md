@@ -20,6 +20,7 @@
 - **系统提示词引导**：会话开始时注入一行轻量引导，提示模型在编码任务前用 `skill` 工具加载 `ponytail` 技能（不是把完整指令塞进每次会话）。
 - **命令注入**：执行任意 `/ponytail*` 命令会把对应技能内容作为用户消息注入会话（与内置 `/goal` 同一机制），模型下一步即可读到。
 - 说 `stop ponytail` 或 `normal mode` 即可关闭（由模型按技能指令处理，无需插件逻辑）。
+- **会话级开关**：`/ponytail off` 除注入关闭指令外，还会在**当前会话内**移除系统提示词引导；`/ponytail lite|full|ultra` 会恢复引导。默认强度仍由环境变量/配置文件决定（见下）。
 
 ## 安装
 
@@ -69,9 +70,7 @@ pnpm test
 
 ```
 lib/index.js        插件入口:apply(ctx) 注册 provider + 提示词 section + 6 命令
-lib/provider.js     全局层技能 provider(扫描 skills/ 目录)
-lib/frontmatter.js  YAML frontmatter 解析
-lib/commands.js     6 个 /ponytail* 命令
+lib/commands.js     6 个 /ponytail* 命令(含 /ponytail 强度切换与会话级 off)
 skills/             6 个技能目录(上游 SKILL.md 逐字复制)
 cordis.patch.yml    bundle patch:插入本插件的宿主行
 test/               node:test 单元测试
