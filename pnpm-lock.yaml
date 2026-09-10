@@ -44,12 +44,6 @@ importers:
         specifier: ^2.9.0
         version: 2.9.0
 
-  dsh-superpowers:
-    dependencies:
-      '@hilariouhiss/dsh-skill-kit':
-        specifier: workspace:^
-        version: link:../dsh-skill-kit
-
 packages:
 
   '@deepseek-ai/cordis@4.0.1':

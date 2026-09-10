@@ -1,6 +1,5 @@
 packages:
   - "dsh-ponytail"
-  - "dsh-superpowers"
   - "dsh-skill-kit"
   - "dsh-colgrep"
   - "dsh-codegraph"

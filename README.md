@@ -7,13 +7,12 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 | 插件 | 说明 |
 |------|------|
 | [dsh-ponytail](dsh-ponytail)（npm: `@hilariouhiss/dsh-ponytail`） | Lazy senior dev 模式插件，源自 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
-| [dsh-superpowers](dsh-superpowers)（npm: `@hilariouhiss/dsh-superpowers`） | Superpowers 软件开发方法论插件（brainstorming、TDD、系统化调试、subagent 驱动开发等 14 个技能 + 会话引导），源自 [obra/superpowers](https://github.com/obra/superpowers) |
 | [dsh-colgrep](dsh-colgrep)（npm: `@hilariouhiss/dsh-colgrep`） | colgrep 语义代码检索插件（`colgrep` 工具，按含义而非精确文本找代码，需 `colgrep` CLI），源自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid) |
 | [dsh-codegraph](dsh-codegraph)（npm: `@hilariouhiss/dsh-codegraph`） | CodeGraph 代码图插件（MCP 集成，`codegraph_explore` 工具，需 `codegraph` CLI），源自 [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) |
 
 ## 共享依赖
 
-[dsh-skill-kit](dsh-skill-kit)（npm: `@hilariouhiss/dsh-skill-kit`）是两个插件共用的运行时依赖：SKILL.md frontmatter 解析、目录型 skill provider、以及 `/命令 → 技能` 的注册逻辑。它是普通 npm 包（非 dsh 插件），必须先于插件发布。
+[dsh-skill-kit](dsh-skill-kit)（npm: `@hilariouhiss/dsh-skill-kit`）是 `dsh-ponytail` 的运行时依赖：SKILL.md frontmatter 解析、目录型 skill provider、以及 `/命令 → 技能` 的注册逻辑。它是普通 npm 包（非 dsh 插件），必须先于插件发布。
 
 ## 开发
 
@@ -36,7 +35,6 @@ pnpm test      # 运行所有包的测试
 ```powershell
 pnpm run publish:dsh-skill-kit
 pnpm run publish:dsh-ponytail
-pnpm run publish:dsh-superpowers
 pnpm run publish:dsh-colgrep
 pnpm run publish:dsh-codegraph
 ```
