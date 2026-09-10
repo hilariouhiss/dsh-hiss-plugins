@@ -4,7 +4,7 @@ import { isValidSkillName, parseFrontmatter } from "../lib/frontmatter.js";
 
 test("isValidSkillName accepts kebab-case names", () => {
 	assert.equal(isValidSkillName("ponytail"), true);
-	assert.equal(isValidSkillName("openspec-propose"), true);
+	assert.equal(isValidSkillName("ponytail-review"), true);
 	assert.equal(isValidSkillName("Ponytail"), false);
 	assert.equal(isValidSkillName("ponytail review"), false);
 	assert.equal(isValidSkillName(""), false);

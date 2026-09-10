@@ -3,4 +3,3 @@ node_modules/
 .npm-cache/
 *.tgz
 .colgrep-data/
-dsh-openspec/OpenSpec/
