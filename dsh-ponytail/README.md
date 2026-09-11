@@ -98,4 +98,4 @@ dsh plugin --profile web add @hilariouhiss/dsh-ponytail
 
 本插件为 MIT 许可。技能内容（`skills/**`）逐字来自 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) v4.9.0（© Dietrich Gebert，MIT）。
 
-> 提示：若日后升级 dsh 后 `@deepseek-ai/dsh-skill` / `@deepseek-ai/dsh-llm` 的公开 API 发生变化，需同步更新本插件的依赖版本。
+> `@deepseek-ai/dsh-skill` / `@deepseek-ai/dsh-llm` 由**正在运行的 dsh 安装**提供，本包只在 `peerDependencies` 里声明（`devDependencies` 供本仓测试）。**不要**把它们写进 `dependencies` —— 那会让 pnpm 往 profile 里塞一份自己的副本，遮蔽安装目录里的同名包，两代混装会让整棵插件树启动失败。升级 dsh 后先跑 `node ../scripts/smoke-profile.mjs` 再发版。

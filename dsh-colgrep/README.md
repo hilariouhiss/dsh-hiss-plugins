@@ -90,4 +90,4 @@ npm publish     # publishConfig.access 已设为 public
 
 本插件为 MIT 许可。它只调用外部的 `colgrep` CLI，未内置 colgrep 源码；colgrep 本身来自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid)（© LightOn，其自身许可见上游仓库）。
 
-> 提示：若日后升级 dsh 后 `@deepseek-ai/dsh-tools` 的公开 API 发生变化，需同步更新本插件的依赖版本。
+> `@deepseek-ai/dsh-tools` 由**正在运行的 dsh 安装**提供，本包只在 `peerDependencies` 里声明（`devDependencies` 供本仓测试）。**不要**把它写进 `dependencies` —— 那会让 pnpm 往 profile 里塞一份自己的副本，遮蔽安装目录里的同名包，两代混装会让整棵插件树启动失败。升级 dsh 后先跑 `node ../scripts/smoke-profile.mjs` 再发版。

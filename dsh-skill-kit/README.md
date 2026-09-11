@@ -14,3 +14,8 @@ that every plugin previously duplicated:
 
 This package is a runtime dependency of the plugins, so it must be published to npm before
 (or with) them.
+
+`@deepseek-ai/dsh-skill` and `@deepseek-ai/dsh-llm` come from the **running dsh
+installation**: they are declared as `peerDependencies` (with `devDependencies` for this
+repo's own tests), never as `dependencies`. A profile-local copy of a harness package
+shadows the installation's own and makes the whole plugin tree fail to load.

@@ -18,8 +18,28 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 
 ```powershell
 pnpm install   # 根目录一次安装，全仓共享
-pnpm test      # 运行所有包的测试
+pnpm test      # 运行所有包的测试（41 个，离线）
+pnpm smoke     # 真实安装 + 真启动冒烟检查（需联网 + pnpm + PATH 上的 dsh）
 ```
+
+### 依赖约定
+
+插件用到的 `@deepseek-ai/*` 由**正在运行的 dsh 安装**提供，只写进 `peerDependencies`；
+`devDependencies` 写精确版本供本仓安装与测试。**绝不写进 `dependencies`** —— 那会让 pnpm
+往 profile 的 `node_modules` 里塞一份自己的副本，遮蔽安装目录里的同名包；两代混装会在 ESM
+链接期报错，连宿主自己的核心行一起炸掉，`dsh` 直接起不来。背景见
+[COMPATIBILITY-REPORT.md](COMPATIBILITY-REPORT.md)。
+
+已经装坏的 profile 恢复方式：
+
+```powershell
+dsh plugin --profile web remove @hilariouhiss/dsh-colgrep   # 先让 dsh 能起来
+dsh plugin --profile web add    @hilariouhiss/dsh-colgrep@latest
+```
+
+若 `dsh` 已完全无法启动，直接删掉 profile 里被 hoist 的旧副本再重启：
+`Remove-Item -Recurse ~/.dsh/profiles/web/node_modules/@deepseek-ai`（该目录本应由上一层
+`~/.dsh/profiles/node_modules` 的安装镜像提供）。
 
 ## 添加新插件
 
