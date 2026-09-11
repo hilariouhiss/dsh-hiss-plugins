@@ -80,9 +80,6 @@ export function apply(ctx) { /* 注册 provider / section / 命令 / 工具 */ }
 | `dsh` 直接起不来、报 `does not provide an export named ...` | profile 里 hoist 了 `@deepseek-ai/*` 旧副本（§3.4）。`ls ~/.dsh/profiles/<p>/node_modules/@deepseek-ai` 有内容即为命中；修 `package.json` 后让用户 `dsh plugin --profile <p> update` |
 | 单元测试全绿、真实安装却炸 | 单测跑仓内 `devDependencies`，看不见 profile 遮蔽；用 `node scripts/smoke-profile.mjs` |
 
-## 8. 通用编码纪律
+## 8. "完成"的定义
 
-- **找根因**：读完整错误、稳定复现、在组件边界插桩、把数据追到源头；先写假设再动手，一次一个变量；不要"顺手改一下"、不要捆绑重构；**三次修复失败就停下来质疑架构**。
-- **证据先于断言**：先写会失败的测试、亲眼看它失败，再写最小实现。说"通过/修好了/完成了"之前，在**本条消息里**跑完验证命令、读完输出、数完失败数。禁用 `should`/`probably`/`seems` 与验证前的"Done!"。
-- **委派纪律**：一个任务一个子代理，只给它需要的东西（把大段材料变成文件让它读）；子代理说成功**不是证据**，去看 diff 和输出；不要并行派发会改同一批文件的任务；一轮不通过就换人或升级模型。
-- **"完成"的定义**：测试全绿（看得见输出）＋ 对应断言同步更新 ＋ frontmatter 合法 ＋ 逐条对照 §3 不变量 ＋ README/版本号一并更新。没做到就**如实说没做到**，不要用模糊措辞掩盖。
+- 测试全绿（看得见输出）＋ 对应断言同步更新 ＋ frontmatter 合法 ＋ 逐条对照 §3 不变量 ＋ README/版本号一并更新。没做到就**如实说没做到**，不要用模糊措辞掩盖。
