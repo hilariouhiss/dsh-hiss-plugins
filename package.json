@@ -5,6 +5,7 @@
   "description": "DeepSeek Harness (dsh) 插件集合仓库。",
   "scripts": {
     "test": "pnpm -r test",
+    "smoke": "node scripts/smoke-profile.mjs",
     "publish:dsh-skill-kit": "pnpm --filter @hilariouhiss/dsh-skill-kit publish",
     "publish:dsh-ponytail": "pnpm --filter @hilariouhiss/dsh-ponytail publish",
     "publish:dsh-colgrep": "pnpm --filter @hilariouhiss/dsh-colgrep publish",
