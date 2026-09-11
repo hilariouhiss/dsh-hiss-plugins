@@ -8,7 +8,7 @@ const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.
  * Harness packages the running installation supplies at runtime. Carrying our
  * own copy into a profile shadows the installation's collection with a
  * different generation: the plugin tree fails to link and the whole boot
- * aborts (see COMPATIBILITY-REPORT.md).
+ * aborts (see AGENTS.md §3.4).
  */
 const HOST_PROVIDED = ["@deepseek-ai/dsh-skill", "@deepseek-ai/dsh-llm"];
 

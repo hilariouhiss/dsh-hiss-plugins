@@ -27,8 +27,8 @@ pnpm smoke     # 真实安装 + 真启动冒烟检查（需联网 + pnpm + PATH 
 插件用到的 `@deepseek-ai/*` 由**正在运行的 dsh 安装**提供，只写进 `peerDependencies`；
 `devDependencies` 写精确版本供本仓安装与测试。**绝不写进 `dependencies`** —— 那会让 pnpm
 往 profile 的 `node_modules` 里塞一份自己的副本，遮蔽安装目录里的同名包；两代混装会在 ESM
-链接期报错，连宿主自己的核心行一起炸掉，`dsh` 直接起不来。背景见
-[COMPATIBILITY-REPORT.md](COMPATIBILITY-REPORT.md)。
+链接期报错，连宿主自己的核心行一起炸掉，`dsh` 直接起不来。规则与症状见 `AGENTS.md` §3.4 与
+§7；`test/manifest.test.js` 会守住这条不变量，`pnpm smoke` 能复现整类故障。
 
 已经装坏的 profile 恢复方式：
 
