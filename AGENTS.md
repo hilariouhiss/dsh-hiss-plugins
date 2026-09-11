@@ -61,17 +61,12 @@ export function apply(ctx) { /* 注册 provider / section / 命令 / 工具 */ }
 
 ## 5. 技能（SKILL.md）规范
 
-- frontmatter：`name`（kebab-case，≤64 字符）、`description`（必填，≤1024，建议 <500）、`whenToUse` 可选。
-- `description` 用「**Use when …**」开头，只写**触发条件与症状**；**绝不概括技能流程** —— 摘要会变成模型抄近路的捷径，让它照着摘要做而不读正文。写上具体触发词、错误串、同义词、工具名。名字用动宾/动名词式，别叫 `utils`/`helpers`。
-- 正文骨架：Overview（核心原则 1–2 句）→ When to Use（含何时**不**用）→ 速查表 → 步骤 → Rationalizations / Red Flags → 清单。祈使句，硬规则 **MUST/NEVER**；用「借口 | 现实」两列表堵死合理化。正文 < 500 行；超 100 行的参考拆成同级文件并用**相对链接**引用；引用别的技能用技能名而非路径；不用 `@` 链接、不写时效性内容、不用反斜杠路径。
 - **`skills/**` 是上游逐字 vendored，不要按本地口味直接改。** 当前 `dsh-ponytail/skills/**`（6 个）是 100% 逐字、无任何本地改动；上游升级时整体覆盖，然后跑测试（§4）并更新 README 的「许可与来源」版本号。技能内部的同级引用必须相对 SKILL.md 所在目录（§2 的 `resourceBase` 语义），不要写"仓库根相对"路径。
 
-## 6. 新增插件与发布
+## 6. 新增插件
 
 - 新增插件：照抄现有包骨架（`package.json`、`cordis.patch.yml`、`lib/index.js`、`test/index.test.js`、`README.md`、`LICENSE`）→ 加进根 `pnpm-workspace.yaml` → 根 `package.json` 加 `publish:<pkg>` 脚本 → 根 `README.md` 补一行 → 写测试 → `dsh plugin --profile <p> add link:./<pkg>` 本地验证。
 - 提交用 **Conventional Commits**（英文）：`feat:`/`fix:`/`docs:`/`refactor:`/`chore:`/`test:`；一个提交只做一件事。
-- 发布前**必须**递增 `version`（`prepublishOnly` 只跑测试，不替你升版本）；**先发 `dsh-skill-kit`，再发各插件**。本仓**没有 CI**，本地验证是唯一的闸门。
-- 不要提交 `node_modules/`、`.colgrep-data/`、`*.tgz`。
 
 ## 7. 常见陷阱
 
