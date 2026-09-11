@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** Installed as profile dependencies; everything else arrives transitively. */
-const PLUGINS = ["dsh-ponytail", "dsh-colgrep", "dsh-codegraph"];
+const PLUGINS = ["dsh-ponytail", "dsh-colgrep", "dsh-codegraph", "dsh-gitbash"];
 /** The library ponytail depends on, satisfied from a local tarball instead of the registry. */
 const LIBRARY = "dsh-skill-kit";
 /** Every packed package, library first. */

@@ -1,0 +1,58 @@
+# @hilariouhiss/dsh-gitbash bundle patch: Git Bash as a first-class shell on Windows.
+#
+# `dsh plugin --profile <name> add @hilariouhiss/dsh-gitbash` installs this package into
+# the profile; because it declares `dsh.bundle.patch`, the profile manifest appends it to
+# the bundle list and this patch is applied as a layer on boot.
+#
+# WHAT THIS ADDS
+#
+# A `bash` tool backed by this machine's Git Bash, registered into the global `tools`
+# layer, so every preset and every session can call it. On POSIX the whole group is
+# disabled: those platforms already compose a bash stack.
+#
+# WHY A REALM GROUP INSTEAD OF REPLACING THE HOST `shell` ROW
+#
+# `ctx.shell` is host-plane and already provided on Windows by `pwsh-sandbox`. Replacing
+# that row would hijack the `pwsh` tool as well — a PowerShell tool that runs bash — and
+# would break every preset that names it. Instead the group below asks the loader for a
+# private instance of `shell` (`isolate`), so:
+#
+#   * the host's `pwsh-sandbox` keeps providing the root `shell`, which every pre-existing
+#     row and preset resolves exactly as before — all three permission modes and the
+#     `pwsh` tool are untouched;
+#   * `tool-bash` sits INSIDE the group, next to its provider, which is the only place it
+#     resolves this realm's executor. A consumer left outside a provider's realm would
+#     silently resolve the host's pwsh executor instead;
+#   * `dsh-bash-sandbox` stays the process-wide default nowhere and the fallback nowhere:
+#     this is an additional shell, not a swap.
+#
+# WHY `settings` IS ISOLATED TOO
+#
+# This executor inherits `dsh-bash-sandbox` → `dsh-bash-local`, whose constructor installs
+# the shared `shell` settings namespace. The host's Windows executor already registered
+# that namespace, and `ctx.settings.register` fails loud on a duplicate. Isolating
+# `settings` inside this group means the executor never reaches the registry, so it
+# registers nothing and the `shell` section in the settings UI stays the host executor's.
+# No row in this group reads settings.
+#
+# WHAT IT CANNOT DO
+#
+# Read-only and workspace-write confine commands with a write-restricted token, and MSYS2
+# cannot start under one, so a confined `bash` call is reported as a sandbox denial and
+# reaches Git Bash through the ordinary approval-gated escalation to danger-full-access.
+# See README.md; that boundary is the sandbox's, not this plugin's.
+
+- insert:
+    - id: git-bash
+      name: cordis:group
+      group: true
+      disabled: !!js process.platform !== 'win32'
+      isolate:
+        shell: true
+        settings: true
+      config:
+        - id: git-bash-executor
+          name: '@hilariouhiss/dsh-gitbash/executor'
+
+        - id: git-bash-tool
+          name: '@deepseek-ai/dsh-tool-bash'

@@ -1,0 +1,58 @@
+{
+  "name": "@hilariouhiss/dsh-gitbash",
+  "version": "1.0.0",
+  "description": "Git Bash as a first-class shell on Windows for DeepSeek Harness — a realm-scoped `ctx.shell` executor plus the standard `bash` tool, wired to the real Git for Windows bash.exe instead of PATH's WSL launcher.",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "gitbash",
+    "bash",
+    "windows",
+    "shell"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "dsh-gitbash contributors"
+  },
+  "homepage": "https://github.com/hilariouhiss/dsh-hiss-plugins/tree/main/dsh-gitbash",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hilariouhiss/dsh-hiss-plugins.git",
+    "directory": "dsh-gitbash"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "exports": {
+    "./executor": "./lib/executor.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-bash-sandbox": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-tool-bash": "^0.1.5-rc.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-bash-sandbox": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-tool-bash": "0.1.5-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

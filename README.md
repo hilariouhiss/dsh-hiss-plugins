@@ -9,6 +9,7 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 | [dsh-ponytail](dsh-ponytail)（npm: `@hilariouhiss/dsh-ponytail`） | Lazy senior dev 模式插件，源自 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
 | [dsh-colgrep](dsh-colgrep)（npm: `@hilariouhiss/dsh-colgrep`） | colgrep 语义代码检索插件（`colgrep` 工具，按含义而非精确文本找代码，需 `colgrep` CLI），源自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid) |
 | [dsh-codegraph](dsh-codegraph)（npm: `@hilariouhiss/dsh-codegraph`） | CodeGraph 代码图插件（MCP 集成，`codegraph_explore` 工具，需 `codegraph` CLI），源自 [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) |
+| [dsh-gitbash](dsh-gitbash)（npm: `@hilariouhiss/dsh-gitbash`） | Windows 上把 Git Bash 接入为一级 shell（`bash` 工具，解析真正的 Git for Windows `bash.exe` 而非 PATH 上的 WSL 启动器；三档权限模式语义不变，受限模式下按标准升级路径使用） |
 
 ## 共享依赖
 
@@ -57,4 +58,5 @@ pnpm run publish:dsh-skill-kit
 pnpm run publish:dsh-ponytail
 pnpm run publish:dsh-colgrep
 pnpm run publish:dsh-codegraph
+pnpm run publish:dsh-gitbash
 ```
