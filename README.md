@@ -10,16 +10,17 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 | [dsh-colgrep](dsh-colgrep)（npm: `@hilariouhiss/dsh-colgrep`） | colgrep 语义代码检索插件（`colgrep` 工具，按含义而非精确文本找代码，需 `colgrep` CLI），源自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid) |
 | [dsh-codegraph](dsh-codegraph)（npm: `@hilariouhiss/dsh-codegraph`） | CodeGraph 代码图插件（MCP 集成，`codegraph_explore` 工具，需 `codegraph` CLI），源自 [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) |
 | [dsh-gitbash](dsh-gitbash)（npm: `@hilariouhiss/dsh-gitbash`） | Windows 上把 Git Bash 接入为一级 shell（`bash` 工具，解析真正的 Git for Windows `bash.exe` 而非 PATH 上的 WSL 启动器；三档权限模式语义不变，受限模式下按标准升级路径使用） |
+| [dsh-taste-skill](dsh-taste-skill)（npm: `@hilariouhiss/dsh-taste-skill`） | 前端设计品味技能集（13 个技能：设计/改版/出图/图转码/品牌板/完整输出），源自 [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) |
 
 ## 共享依赖
 
-[dsh-skill-kit](dsh-skill-kit)（npm: `@hilariouhiss/dsh-skill-kit`）是 `dsh-ponytail` 的运行时依赖：SKILL.md frontmatter 解析、目录型 skill provider、以及 `/命令 → 技能` 的注册逻辑。它是普通 npm 包（非 dsh 插件），必须先于插件发布。
+[dsh-skill-kit](dsh-skill-kit)（npm: `@hilariouhiss/dsh-skill-kit`）是 `dsh-ponytail` 与 `dsh-taste-skill` 的运行时依赖：SKILL.md frontmatter 解析、目录型 skill provider、以及 `/命令 → 技能` 的注册逻辑。它是普通 npm 包（非 dsh 插件），必须先于插件发布。
 
 ## 开发
 
 ```powershell
 pnpm install   # 根目录一次安装，全仓共享
-pnpm test      # 运行所有包的测试（41 个，离线）
+pnpm test      # 运行所有包的测试（82 个，离线）
 pnpm smoke     # 真实安装 + 真启动冒烟检查（需联网 + pnpm + PATH 上的 dsh）
 ```
 
@@ -59,4 +60,5 @@ pnpm run publish:dsh-ponytail
 pnpm run publish:dsh-colgrep
 pnpm run publish:dsh-codegraph
 pnpm run publish:dsh-gitbash
+pnpm run publish:dsh-taste-skill
 ```

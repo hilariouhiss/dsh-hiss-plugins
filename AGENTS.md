@@ -12,9 +12,10 @@
 | `dsh-colgrep` | `colgrep` 模型工具（语义检索） | 13 |
 | `dsh-codegraph` | 经 MCP 注册 `mcp__codegraph__*` 工具 | 4 |
 | `dsh-gitbash` | Windows 上接入 Git Bash：realm 组内提供 `ctx.shell` + 宿主 `bash` 工具 | 34 |
+| `dsh-taste-skill` | 13 技能（上游逐字副本；无命令、无提示词段，只注册 provider） | 7 |
 
-npm 名统一为 `@hilariouhiss/<目录名>`。依赖：`dsh-ponytail` → `dsh-skill-kit`（**必须先发布**）；`colgrep` → `dsh-tools`；`codegraph` → `dsh-mcp-client`；`gitbash` → `dsh-bash-sandbox` + `dsh-tool-bash`。后四者（以及 skill-kit 的 `dsh-skill`/`dsh-llm`）是**宿主提供的 peer**，见 §3.4。
-`skills/**` 是上游**逐字副本**（ponytail v4.9.0）；colgrep、codegraph 无技能。
+npm 名统一为 `@hilariouhiss/<目录名>`。依赖：`dsh-ponytail`、`dsh-taste-skill` → `dsh-skill-kit`（**必须先发布**）；`colgrep` → `dsh-tools`；`codegraph` → `dsh-mcp-client`；`gitbash` → `dsh-bash-sandbox` + `dsh-tool-bash`。后四者（以及 skill-kit 的 `dsh-skill`/`dsh-llm`）是**宿主提供的 peer**，见 §3.4。
+`skills/**` 是上游**逐字副本**（ponytail v4.9.0、taste-skill `ccbc156`）；colgrep、codegraph 无技能。
 
 ## 2. 插件如何工作
 
@@ -55,13 +56,13 @@ export function apply(ctx) { /* 注册 provider / section / 命令 / 工具 */ }
 
 - ESM、import 带显式 `.js` 后缀、Node ≥ 20；**纯 JS + JSDoc，无 TypeScript、无构建步骤**；**缩进用 TAB**；双引号、分号；具名导出；私有字段 `#`；注释写 why 不写 what。
 - 测试用 Node 内置 `node:test` + `node:assert/strict`，零依赖。**不启动真实 DSH**：手写 fake `ctx` 捕获注册调用，`mkdtempSync` 临时目录做 fixture，用假 `agent.followup` 收集注入的消息。覆盖导出形状、注册次数、argv 组装、渲染函数、frontmatter 边界与**错误分支**。
-- 运行：`pnpm install` → `pnpm test`。**在 DSH 沙箱内 `pnpm test` 会以 `spawn EPERM` 失败** —— 沙箱禁止带管道的子进程 stdio，而 `node --test` 要为每个测试文件 spawn 子进程；这是**环境限制，不是测试失败**，改在包目录内跑 `node --test-isolation=none --test`。基线：**75 个测试全绿**（12/12/13/4/34），依赖为 0.1.5-rc.2（与当前运行时同代）。
+- 运行：`pnpm install` → `pnpm test`。**在 DSH 沙箱内 `pnpm test` 会以 `spawn EPERM` 失败** —— 沙箱禁止带管道的子进程 stdio，而 `node --test` 要为每个测试文件 spawn 子进程；这是**环境限制，不是测试失败**，改在包目录内跑 `node --test-isolation=none --test`。基线：**82 个测试全绿**（12/12/13/4/34/7），依赖为 0.1.5-rc.2（与当前运行时同代）。
 - 单元测试跑的是仓内 `devDependencies`，**看不到 profile 里的模块遮蔽**。真实安装 + 真启动的冒烟检查是唯一能抓到那一类的方式：`node scripts/smoke-profile.mjs`（需联网 + `pnpm` + PATH 上的 `dsh`，非 `pnpm test` 的一部分）。
 - 绝不为"让测试变绿"而削弱断言或删测试；先判断是**行为错了**还是**期望错了**，说清依据再改。
 
 ## 5. 技能（SKILL.md）规范
 
-- **`skills/**` 是上游逐字 vendored，不要按本地口味直接改。** 当前 `dsh-ponytail/skills/**`（6 个）是 100% 逐字、无任何本地改动；上游升级时整体覆盖，然后跑测试（§4）并更新 README 的「许可与来源」版本号。技能内部的同级引用必须相对 SKILL.md 所在目录（§2 的 `resourceBase` 语义），不要写"仓库根相对"路径。
+- **`skills/**` 是上游逐字 vendored，不要按本地口味直接改。** 当前 `dsh-ponytail/skills/**`（6 个）与 `dsh-taste-skill/skills/**`（13 个）都是 100% 逐字、无任何本地改动；上游升级时整体覆盖，然后跑测试（§4）并更新 README 的「许可与来源」版本号。技能内部的同级引用必须相对 SKILL.md 所在目录（§2 的 `resourceBase` 语义），不要写"仓库根相对"路径。
 
 ## 6. 新增插件
 

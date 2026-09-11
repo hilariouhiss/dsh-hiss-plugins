@@ -1,0 +1,65 @@
+{
+  "name": "@hilariouhiss/dsh-taste-skill",
+  "version": "1.0.0",
+  "description": "Taste-Skill — the anti-slop frontend design skill set (13 skills) ported to DeepSeek Harness: design taste, image direction, image-to-code, brand kits, and complete-output enforcement.",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "taste-skill",
+    "skill",
+    "frontend",
+    "design",
+    "ui",
+    "anti-slop"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "dsh-taste-skill contributors"
+  },
+  "homepage": "https://github.com/hilariouhiss/dsh-hiss-plugins/tree/main/dsh-taste-skill",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hilariouhiss/dsh-hiss-plugins.git",
+    "directory": "dsh-taste-skill"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "skills/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@hilariouhiss/dsh-skill-kit": "workspace:^"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+    "@deepseek-ai/dsh-skill": "^0.1.5-rc.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-skill": "0.1.5-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
