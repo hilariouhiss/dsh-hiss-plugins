@@ -36,7 +36,6 @@ export function apply(ctx) { /* 注册 provider / section / 命令 / 工具 */ }
 | `ctx.shell.resolve/run` + `ctx.sandboxPolicy.resolve` | 在沙箱策略内调用外部 CLI |
 | `ctx.plugin({ inject, apply }, config)` | 嵌套加载其它插件 |
 
-- section `order`：引导段用 **5**，codegraph 指引用 **100**，不要随手取数。
 - `makeSkillProvider` 的 `rank` 默认 `BUNDLED_SKILL_RANK`（**600**），因此 `~/.dsh/skills/`、项目 `.dsh/skills/` 的同名技能会**覆盖**插件技能 —— 这是预期的层叠语义，别为"让插件生效"去调高。
 - 技能目录会作为 `resourceBase` 暴露，所以正文里的相对引用（`references/*`、`scripts/*`）可解析。
 - 命令把技能喂给模型：`agent.followup(createUserMessage({ content:[{type:"text",text:renderSkillContent(skill)}], source:{kind:"skill-invocation",name,form:"instructions"} }))` —— 与内置 `/goal` 同机制，模型下一步即可读到；返回 `{ kind:"success"|"error", text }`。
@@ -55,7 +54,6 @@ export function apply(ctx) { /* 注册 provider / section / 命令 / 工具 */ }
 ## 4. 代码与测试风格
 
 - ESM、import 带显式 `.js` 后缀、Node ≥ 20；**纯 JS + JSDoc，无 TypeScript、无构建步骤**；**缩进用 TAB**；双引号、分号；具名导出；私有字段 `#`；注释写 why 不写 what。
-- 新增依赖要克制：标准库或已有依赖能做的就不加。
 - 测试用 Node 内置 `node:test` + `node:assert/strict`，零依赖。**不启动真实 DSH**：手写 fake `ctx` 捕获注册调用，`mkdtempSync` 临时目录做 fixture，用假 `agent.followup` 收集注入的消息。覆盖导出形状、注册次数、argv 组装、渲染函数、frontmatter 边界与**错误分支**。
 - 运行：`pnpm install` → `pnpm test`。**在 DSH 沙箱内 `pnpm test` 会以 `spawn EPERM` 失败** —— 沙箱禁止带管道的子进程 stdio，而 `node --test` 要为每个测试文件 spawn 子进程；这是**环境限制，不是测试失败**，改在包目录内跑 `node --test-isolation=none --test`。基线：**75 个测试全绿**（12/12/13/4/34），依赖为 0.1.5-rc.2（与当前运行时同代）。
 - 单元测试跑的是仓内 `devDependencies`，**看不到 profile 里的模块遮蔽**。真实安装 + 真启动的冒烟检查是唯一能抓到那一类的方式：`node scripts/smoke-profile.mjs`（需联网 + `pnpm` + PATH 上的 `dsh`，非 `pnpm test` 的一部分）。
@@ -76,17 +74,13 @@ export function apply(ctx) { /* 注册 provider / section / 命令 / 工具 */ }
 |---|---|
 | 重启后插件"没生效" | `cordis.patch.yml` 的 `name` 与包名不一致，或 `inject` 少列服务 |
 | 命令在、技能列表为空 | `files` 漏了 `skills/`，或 frontmatter 解析失败（看 provider 的 warn 日志） |
-| `pnpm test` 报 `spawn EPERM` | 沙箱限制，非代码缺陷；改用 `node --test-isolation=none --test` |
-| `colgrep` 写索引失败 | 索引必须落在工作区内：插件用 `COLGREP_DATA_DIR` 指向 `<workspace>/.colgrep-data` |
-| `codegraph` 返回"无索引" | 目标项目未 `codegraph init`；`projectPath` 必须由模型显式传 |
 | 升级 DSH 后插件崩 | `@deepseek-ai/*` 是预发布版，公开 API 可能变；同步 peer 范围与 `devDependencies`，再跑 `node scripts/smoke-profile.mjs` |
 | `dsh` 直接起不来、报 `does not provide an export named ...` | profile 里 hoist 了 `@deepseek-ai/*` 旧副本（§3.4）。`ls ~/.dsh/profiles/<p>/node_modules/@deepseek-ai` 有内容即为命中；修 `package.json` 后让用户 `dsh plugin --profile <p> update` |
 | 单元测试全绿、真实安装却炸 | 单测跑仓内 `devDependencies`，看不见 profile 遮蔽；用 `node scripts/smoke-profile.mjs` |
 
 ## 8. 通用编码纪律
 
-- **先爬阶梯**：① 需要存在吗（YAGNI）→ ② 仓库里已有？→ ③ 标准库？→ ④ 平台原生？→ ⑤ 已装依赖？→ ⑥ 一行？→ ⑦ 才写最小实现。删除优于新增、最少文件数、最短能工作的 diff —— 但前提是**已经理解了问题**。阶梯只缩短解法，绝不缩短阅读。
-- **找根因**：报告写的是症状。读完整错误、稳定复现、在组件边界插桩、把数据追到源头；改公共函数前先 grep 所有调用方（在共享处加一个 guard，比在每个调用方各加一个更小也更对）。先写假设再动手，一次一个变量；不要"顺手改一下"、不要捆绑重构；**三次修复失败就停下来质疑架构**。
+- **找根因**：读完整错误、稳定复现、在组件边界插桩、把数据追到源头；先写假设再动手，一次一个变量；不要"顺手改一下"、不要捆绑重构；**三次修复失败就停下来质疑架构**。
 - **证据先于断言**：先写会失败的测试、亲眼看它失败，再写最小实现。说"通过/修好了/完成了"之前，在**本条消息里**跑完验证命令、读完输出、数完失败数。禁用 `should`/`probably`/`seems` 与验证前的"Done!"。
 - **委派纪律**：一个任务一个子代理，只给它需要的东西（把大段材料变成文件让它读）；子代理说成功**不是证据**，去看 diff 和输出；不要并行派发会改同一批文件的任务；一轮不通过就换人或升级模型。
 - **"完成"的定义**：测试全绿（看得见输出）＋ 对应断言同步更新 ＋ frontmatter 合法 ＋ 逐条对照 §3 不变量 ＋ README/版本号一并更新。没做到就**如实说没做到**，不要用模糊措辞掩盖。
