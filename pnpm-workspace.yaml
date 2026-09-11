@@ -5,6 +5,7 @@ packages:
   - "dsh-codegraph"
   - "dsh-gitbash"
   - "dsh-taste-skill"
+  - "dsh-superpowers"
 minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-agent@0.1.5-rc.2'
   - '@deepseek-ai/dsh-attachment@0.1.5-rc.2'

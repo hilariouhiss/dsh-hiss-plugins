@@ -11,6 +11,7 @@
     "publish:dsh-colgrep": "pnpm --filter @hilariouhiss/dsh-colgrep publish",
     "publish:dsh-codegraph": "pnpm --filter @hilariouhiss/dsh-codegraph publish",
     "publish:dsh-gitbash": "pnpm --filter @hilariouhiss/dsh-gitbash publish",
-    "publish:dsh-taste-skill": "pnpm --filter @hilariouhiss/dsh-taste-skill publish"
+    "publish:dsh-taste-skill": "pnpm --filter @hilariouhiss/dsh-taste-skill publish",
+    "publish:dsh-superpowers": "pnpm --filter @hilariouhiss/dsh-superpowers publish"
   }
 }

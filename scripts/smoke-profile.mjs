@@ -25,8 +25,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** Installed as profile dependencies; everything else arrives transitively. */
-const PLUGINS = ["dsh-ponytail", "dsh-colgrep", "dsh-codegraph", "dsh-gitbash", "dsh-taste-skill"];
-/** The library ponytail and taste-skill depend on, satisfied from a local tarball instead of the registry. */
+const PLUGINS = ["dsh-ponytail", "dsh-colgrep", "dsh-codegraph", "dsh-gitbash", "dsh-taste-skill", "dsh-superpowers"];
+/** The library the skill plugins depend on, satisfied from a local tarball instead of the registry. */
 const LIBRARY = "dsh-skill-kit";
 /** Every packed package, library first. */
 const PACKAGES = [LIBRARY, ...PLUGINS];
