@@ -17,6 +17,23 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 
 [dsh-skill-kit](dsh-skill-kit)（npm: `@hilariouhiss/dsh-skill-kit`）是 `dsh-ponytail`、`dsh-taste-skill` 与 `dsh-superpowers` 的运行时依赖：SKILL.md frontmatter 解析、目录型 skill provider、以及 `/命令 → 技能` 的注册逻辑。它是普通 npm 包（非 dsh 插件），必须先于插件发布。
 
+## 一次装齐全部插件
+
+`dsh plugin` 是 pnpm 的透传（`dsh plugin --profile <p> add ...` 等于在 profile 目录里跑 `pnpm add ...`），装完会按**已安装状态**把声明了 `dsh.bundle.patch` 的依赖追加进 `dsh.profile.bundles`，所以一条命令就能装完，不需要手工改 bundles：
+
+```powershell
+# 从 npm 装（要求各包都已发布）
+dsh plugin --profile web add @hilariouhiss/dsh-ponytail @hilariouhiss/dsh-colgrep @hilariouhiss/dsh-codegraph @hilariouhiss/dsh-gitbash @hilariouhiss/dsh-taste-skill @hilariouhiss/dsh-superpowers
+
+# 从本仓 checkout 装（含尚未发布的包；在仓库根目录执行；自动跟随以后新增的插件目录）
+dsh plugin --profile web add (Get-ChildItem -Directory -Filter "dsh-*" | Where-Object Name -ne "dsh-skill-kit" | ForEach-Object { "link:./$($_.Name)" })
+```
+
+装完重启 dsh。两点注意：
+
+- **不要**把 `dsh-skill-kit` 加进命令：它是普通库（没有 `dsh.bundle`），会被装成普通依赖并打一条 `declares no dsh.bundle` 警告。三个技能插件都依赖它，pnpm 会自动带上。
+- profile 的 `pnpm-workspace.yaml` 带供应链策略（`minimumReleaseAge`）：**不写版本号时，刚发布的版本会被挡住**，解析到上一代（例如 `dsh-ponytail` 装成 1.0.2 而不是 1.1.0）。要立刻用新版本就显式写版本号（`@hilariouhiss/dsh-ponytail@1.1.0`），或把该版本加进 profile 的 `minimumReleaseAgeExclude`。
+
 ## 开发
 
 ```powershell
