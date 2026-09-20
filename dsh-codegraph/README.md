@@ -8,6 +8,7 @@
 
 - 注册 **`mcp__codegraph__codegraph_explore`** 工具：一次调用返回相关符号的逐字源码（按文件分组）、符号间调用链（含动态分派跳转）与影响范围（blast radius）。
 - 注入系统提示词引导，让智能体对结构性问题（「X 如何工作」「X 如何到达 Y」「改某处会影响什么」）**优先直接调 `codegraph_explore`**，而不是 grep/逐文件读，并**传 `projectPath`** 指向当前工作区。
+- 引导段每回合检查当前工作区是否已有 `.codegraph/`：**没有**时多注入一句，带上可直接执行的 `codegraph init -y`，让智能体先建图再检索，而不是撞一次「无索引」错误。
 
 ## 前置要求
 
@@ -38,7 +39,7 @@ dsh plugin --profile web add @hilariouhiss/dsh-codegraph
 ## 验证
 
 1. 重启后，让模型回答一个代码结构问题（如「这个请求是怎么到达数据库的」），观察它调用 `mcp__codegraph__codegraph_explore` 且返回源码 + 调用链。
-2. 若某项目尚未建图，工具会返回「无索引」提示——在该项目跑一次 `codegraph init` 即可。
+2. 若某项目尚未建图，引导段会直接给出 `codegraph init -y`，模型可先建图再检索（MCP server 只暴露 `codegraph_explore`，没有任何工具能替它建图，所以这一步必须由模型执行）。
 
 ## 卸载
 
@@ -54,9 +55,9 @@ dsh plugin --profile web remove @hilariouhiss/dsh-codegraph
 
 1. **模型仍需手动传 `projectPath`（部分缓解）**：DSH 宿主是单实例、多会话（多工作区），而 mcp-client 的 `cwd` 是宿主面静态配置（`process.cwd()`）。`codegraph_explore` 无法默认指向「当前会话工作区」，模型每次调用仍要自己填 `projectPath`。引导文本现已**动态注入当前会话工作区的绝对路径**，降低漏填/填错概率；但工具本身仍未自动注入。理想做法是包装一个能自动注入会话 `cwd` 的工具，或让 server 按会话定位项目。
 
-2. **自动同步只覆盖 server 默认目录的项目**：codegraph 的文件 watcher 只持续监视 MCP server 启动 `cwd` 对应的项目；经 `projectPath` 查询的其它项目没有持续 watcher，索引不会随编辑自动刷新，需手动 `codegraph sync` 保持最新（本插件未做任何同步封装）。
+2. **自动同步只覆盖 MCP server 默认目录的项目**：codegraph 的文件 watcher 只持续监视 MCP server 启动 `cwd` 对应的项目（在 DSH 里即 `dsh` 进程的工作目录）；经 `projectPath` 查询的其它项目没有持续 watcher，索引不会随编辑自动刷新，需手动 `codegraph sync`。因此当**会话工作区 ≠ dsh 启动目录**时（例如在 `C:\Users\<你>` 起 `dsh web`、却让会话在别的仓库里工作），该仓库的索引不会自动跟进。对策：在目标仓库目录里启动 `dsh`，或手动 `codegraph sync`。
 
-3. **不自动建索引**：每个项目必须手动 `codegraph init` 一次；插件不代建。未初始化时工具返回「无索引」引导而非真实结果。
+3. **不代建索引**：插件不后台跑 `codegraph init`。项目完全没建过图时，由**引导段提示模型自己执行** `codegraph init -y`（一行提示，零后台进程；`.codegraph/` 存在后该提示自动消失）。
 
 ## 开发
 

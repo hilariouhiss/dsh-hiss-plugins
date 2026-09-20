@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { apply, codegraphConfig } from "../lib/index.js";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { apply, codegraphConfig, guidanceFor } from "../lib/index.js";
 
 function makeContext(captures) {
 	const ctx = {
@@ -55,4 +58,18 @@ test("apply registers the usage guidance section", () => {
 	assert.ok(text.includes("projectPath"), "tells the agent to pass projectPath");
 	assert.ok(text.includes("codegraph init"), "points at the init prerequisite");
 	assert.ok(text.includes("C:/project"), "injects the current workspace path");
+});
+
+test("guidanceFor tells the agent to build a missing index", () => {
+	const dir = mkdtempSync(join(tmpdir(), "codegraph-guidance-"));
+
+	const missing = guidanceFor(dir);
+	assert.ok(missing.includes(dir), "carries the workspace path");
+	assert.ok(missing.includes("no index yet"), "flags the missing index");
+	assert.ok(missing.includes("codegraph init -y"), "gives the exact command");
+
+	mkdirSync(join(dir, ".codegraph"));
+	const indexed = guidanceFor(dir);
+	assert.ok(!indexed.includes("no index yet"), "drops the hint once .codegraph exists");
+	assert.ok(indexed.includes(dir), "still carries the workspace path");
 });

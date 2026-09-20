@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { apply as mcpClientApply, inject as mcpClientInject } from "@deepseek-ai/dsh-mcp-client";
 
 export const name = "codegraph";
@@ -13,8 +15,13 @@ const GUIDANCE = [
 	"If the `mcp__codegraph__*` tool is not listed, the codegraph CLI is not installed or failed to start — check the DSH host logs.",
 ].join("");
 
-function guidanceFor(cwd) {
-	return `${GUIDANCE} Current workspace: ${cwd}; pass it as \`projectPath\`.`;
+// This workspace has no index. The MCP server exposes only `codegraph_explore`,
+// so nothing can build the index but the agent itself.
+const MISSING_INDEX = " This workspace has no index yet — run `codegraph init -y` here once before exploring, then retry.";
+
+export function guidanceFor(cwd) {
+	const hint = cwd && !existsSync(join(cwd, ".codegraph")) ? MISSING_INDEX : "";
+	return `${GUIDANCE} Current workspace: ${cwd}; pass it as \`projectPath\`.${hint}`;
 }
 
 /**
