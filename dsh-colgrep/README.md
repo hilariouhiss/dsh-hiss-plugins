@@ -18,7 +18,8 @@
 |---|---|---|
 | `query` | string（必填） | 自然语言查询 |
 | `command` | enum `search`(默认)/`init`/`status`/`clear` | 检索 / 建索引 / 查状态 / 清索引 |
-| `path` | string | 待检索/索引的文件或目录（默认工作区根） |
+| `root` | string | 检索/索引哪个项目（默认工作区根；可绝对路径或相对工作区解析） |
+| `path` | string | `root` 内的检索目标（默认整个 `root`）。注意：colgrep 会回落到项目索引，所以它是「聚焦」而非硬过滤 —— 要硬收窄请用 `include` / `pattern` |
 | `top_k` | integer | 结果数（`-k`，默认 15） |
 | `pattern` | string | 正则预筛（`-e`，hybrid：先 grep 再语义排序） |
 | `include` | string | 只检索匹配 glob 的文件（`--include`，如 `"*.rs"`） |
@@ -29,7 +30,9 @@
 
 - 结果以 `--json` 解析后折叠为紧凑可读文本（`文件:行-行 [语言, 类型, 名称] (score)` + 首行签名），不倾倒整段代码；模型可再 `read` 具体文件。解析兼容顶层数组与 `{results:[...]}` 两种 JSON 形状；`query` 为空或纯空白时返回明确错误。
 - **索引重定位**：DSH 文件沙箱禁止写工作区之外，而 colgrep 检索需要写索引锁文件。插件把索引目录重定位到 `<工作区>/.colgrep-data`（通过 `COLGREP_DATA_DIR`），使全部写入落在沙箱允许范围内。ColBERT 模型与 ONNX runtime 从 `~/.cache` 只读加载，无需联网。
+- **显式根目录**：`root` 只改变检索**运行的位置**（`workdir`），不改变索引位置 —— 索引数据始终留在 `<工作区>/.colgrep-data`，因为 colgrep 的索引是**按项目注册的**（`<data_dir>/indices/<项目名>-<hash>`），一个数据目录可以同时容纳多个项目的索引，跨项目检索不会把数据写到别人的仓库里。**真正限制结果范围的是 `root`**（换项目）；`path` 相对 `root` 解析（无 `root` 时相对工作区，与旧行为一致），只做聚焦、不保证排他。
 - 首次检索会自动建立索引（CPU 上大仓库可能需数分钟）；可用 `command:"init"` 显式建索引，`no_update:true` 走现有索引。
+- **主动使用**：注册 `colgrep:guidance` 提示词段（每回合重算，带上当前会话工作区路径），让模型在「按含义找代码、但说不出确切标识符」时优先用 `colgrep` 而不是 grep。
 
 ## 前置要求
 

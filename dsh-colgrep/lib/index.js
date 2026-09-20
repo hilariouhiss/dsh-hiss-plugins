@@ -1,11 +1,30 @@
+import { resolve } from "node:path";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 
 export const name = "colgrep";
-export const inject = ["tools", "shell", "sandboxPolicy"];
+export const inject = ["tools", "shell", "sandboxPolicy", "systemPrompt"];
 
 const LONG_PATH_PREFIX = String.fromCharCode(92, 92, 63, 92); // "\\?\"
 
-const TOOL_DESCRIPTION = `Semantic code search over the workspace using the local colgrep CLI (ColBERT multi-vector search). Finds code by meaning, not exact text. Use a natural-language \`query\` such as "error handling for database connections". Defaults to \`search\`; the first search auto-builds/updates the index (can take a while). Use \`command:"status"\` to inspect the index, \`command:"init"\` to (re)build it explicitly, and \`no_update:true\` for a fast search over an existing index. Use \`pattern\` to pre-filter by regex, \`include\` to limit file types (e.g. "*.rs"), and \`code_only\` to skip text/config files.`;
+const TOOL_DESCRIPTION = `Semantic code search over the workspace using the local colgrep CLI (ColBERT multi-vector search). Finds code by meaning, not exact text. Use a natural-language \`query\` such as "error handling for database connections". Defaults to \`search\`; search auto-indexes, so the first run in a project builds the index and is slower. Use \`command:"status"\` to inspect the index, \`command:"init"\` to (re)build it explicitly, and \`no_update:true\` for a fast search over an existing index. Pass \`root\` to search a project other than the workspace, and \`path\` to narrow the search within it. Use \`pattern\` to pre-filter by regex, \`include\` to limit file types (e.g. "*.rs"), and \`code_only\` to skip text/config files.`;
+
+const GUIDANCE = [
+	"Semantic code search is available through the `colgrep` tool. ",
+	"Reach for it when you want code by meaning and cannot name the exact identifier — grep is for text you can already spell out. ",
+	"It auto-indexes on demand, so the first search in a project is slower; use `pattern` for a regex pre-filter that ranks semantically after. ",
+	"Pass `root` to search a project other than the workspace. ",
+].join("");
+
+/**
+ * Usage guidance carrying the current workspace, so the agent passes the right
+ * default root.
+ *
+ * @param {string} cwd the session workspace path.
+ * @returns {string} prompt text for the colgrep guidance section.
+ */
+export function guidanceFor(cwd) {
+	return `${GUIDANCE} Current workspace: ${cwd}; the default root.`;
+}
 
 export function stripPathPrefix(path) {
 	const value = String(path);
@@ -30,9 +49,11 @@ export function buildArgs(args) {
 		if (args.include) argv.push("--include", args.include);
 		if (args.code_only) argv.push("--code-only");
 		argv.push(String(args.query || ""));
+		if (args.root) argv.push(String(args.root));
 		if (args.path) argv.push(args.path);
 	} else if (command === "init") {
 		argv.push("init", "-y");
+		if (args.root) argv.push(String(args.root));
 		if (args.path) argv.push(args.path);
 	} else if (command === "status") {
 		argv.push("status");
@@ -94,13 +115,20 @@ export function renderOutput(value) {
 }
 
 export function apply(ctx) {
+	ctx.systemPrompt.section({
+		name: "colgrep:guidance",
+		order: 100,
+		text: (context) => guidanceFor(context.scope?.session?.header?.cwd ?? process.cwd()),
+	});
+
 	ctx.tools.register(defineTool({
 		name: "colgrep",
 		description: TOOL_DESCRIPTION,
 		parameters: {
 			query: { type: "string", description: "Natural-language query (used by search).", required: true },
 			command: { type: "string", enum: ["search", "init", "status", "clear"], description: "Operation. search (default) finds code; init builds/updates the index; status reports index state; clear removes the index." },
-			path: { type: "string", description: "File or directory to search/index (default: workspace root)." },
+			root: { type: "string", description: "Project directory to search or index (default: the workspace root). Absolute or relative to the workspace." },
+			path: { type: "string", description: "File or directory of `root` to search (default: the whole root). colgrep searches this target and falls back to the project index, so it is a focus, not a hard filter — narrow with `include` or `pattern` instead." },
 			top_k: { type: "integer", description: "Number of results to return (-k). Default 15." },
 			pattern: { type: "string", description: "Regex pre-filter (-e): grep first, then rank semantically (hybrid)." },
 			include: { type: "string", description: "Only search files matching this glob (--include), e.g. \"*.rs\"." },
@@ -118,6 +146,10 @@ export function apply(ctx) {
 			const root = policy && typeof policy.workspaceRoot === "string" ? policy.workspaceRoot : "";
 			const base = root.replace(/[\\/]+$/, "");
 			const dataDir = base + "/.colgrep-data";
+			// `root` moves the run, never the index: index data stays inside the
+			// workspace so it remains under the sandbox policy and the same
+			// registry serves every root.
+			const workdir = args.root && base ? resolve(base, args.root) : base;
 			const command = buildArgs(args).map((part, index) => (index === 0 ? part : quoteArg(part))).join(" ");
 			const spec = ctx.shell.resolve({
 				command,
@@ -125,7 +157,7 @@ export function apply(ctx) {
 				stdoutMaxBytes: 2 * 1024 * 1024,
 				signal: exec.signal,
 				sandboxPolicy: policy,
-				...(base ? { workdir: base, env: { COLGREP_DATA_DIR: dataDir } } : {}),
+				...(workdir ? { workdir, env: { COLGREP_DATA_DIR: dataDir } } : {}),
 			});
 			const run = await ctx.shell.run(spec);
 			const stdout = run.stdout && run.stdout.text ? run.stdout.text : "";

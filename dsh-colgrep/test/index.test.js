@@ -1,9 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { apply, buildArgs, normalizeResults, quoteArg, renderOutput, stripPathPrefix } from "../lib/index.js";
+import { resolve } from "node:path";
+import { apply, buildArgs, guidanceFor, normalizeResults, quoteArg, renderOutput, stripPathPrefix } from "../lib/index.js";
 
 function makeContext(captures) {
 	const ctx = {
+		systemPrompt: {
+			section(section) {
+				captures.sections.push(section);
+				return () => {};
+			},
+		},
 		tools: {
 			register(definition) {
 				captures.definition = definition;
@@ -55,6 +62,17 @@ test("buildArgs builds init/status/clear", () => {
 	assert.deepEqual(buildArgs({ command: "init" }), ["colgrep", "init", "-y"]);
 	assert.deepEqual(buildArgs({ command: "status" }), ["colgrep", "status"]);
 	assert.deepEqual(buildArgs({ command: "clear" }), ["colgrep", "clear"]);
+});
+
+test("buildArgs passes root as the CLI search path", () => {
+	assert.deepEqual(
+		buildArgs({ query: "auth", root: "C:/other" }),
+		["colgrep", "--json", "--color", "never", "-y", "-k", "15", "auth", "C:/other"],
+	);
+});
+
+test("buildArgs passes root to init", () => {
+	assert.deepEqual(buildArgs({ command: "init", root: "C:/other" }), ["colgrep", "init", "-y", "C:/other"]);
 });
 
 test("buildArgs rejects an unknown command", () => {
@@ -116,6 +134,7 @@ test("renderOutput formats a text command", () => {
 test("apply registers colgrep and execute shells out with a workspace-local index", async () => {
 	const unitFile = "\\\\?\\C:\\workspace\\src\\main.rs";
 	const captures = {
+		sections: [],
 		runResult: {
 			exitCode: 0,
 			timedOut: false,
@@ -141,9 +160,57 @@ test("apply registers colgrep and execute shells out with a workspace-local inde
 	assert.equal(value.results[0].score, 2.1);
 });
 
+test("execute roots the run at the requested project but keeps the index in the workspace", async () => {
+	const captures = { sections: [], runResult: { exitCode: 0, timedOut: false, aborted: false, stdout: { text: "[]" }, stderr: { text: "" } } };
+	apply(makeContext(captures));
+
+	await captures.definition.execute({ query: "auth", root: "C:/other-project" }, mockExec("C:/workspace"));
+
+	assert.equal(captures.request.workdir, resolve("C:/other-project"));
+	assert.equal(captures.request.env.COLGREP_DATA_DIR, "C:/workspace/.colgrep-data");
+	assert.ok(captures.request.command.includes("'C:/other-project'"), "roots the CLI argv at the project");
+});
+
+test("execute resolves a relative root against the workspace", async () => {
+	const captures = { sections: [], runResult: { exitCode: 0, timedOut: false, aborted: false, stdout: { text: "[]" }, stderr: { text: "" } } };
+	apply(makeContext(captures));
+
+	await captures.definition.execute({ query: "auth", root: "../other" }, mockExec("C:/workspace"));
+
+	assert.equal(captures.request.workdir, resolve("C:/workspace", "../other"));
+});
+
+test("apply registers usage guidance carrying the current workspace", () => {
+	const captures = { sections: [] };
+	apply(makeContext(captures));
+
+	assert.equal(captures.sections.length, 1);
+	const [section] = captures.sections;
+	assert.equal(section.name, "colgrep:guidance");
+	assert.equal(typeof section.text, "function");
+	const text = section.text({ scope: { session: { header: { cwd: "C:/project" } } } });
+	assert.ok(text.includes("`colgrep` tool"), "names the colgrep tool");
+	assert.ok(text.includes("meaning"), "tells the agent to search by meaning");
+	assert.ok(text.includes("auto-indexes"), "says the index builds on demand");
+	assert.ok(text.includes("root"), "documents the explicit root parameter");
+	assert.ok(text.includes("C:/project"), "injects the current workspace path");
+	assert.ok(guidanceFor("C:/project").includes("C:/project"), "guidanceFor carries the workspace");
+});
+
+test("execute still passes path through when rooted at another project", async () => {
+	const captures = { sections: [], runResult: { exitCode: 0, timedOut: false, aborted: false, stdout: { text: "[]" }, stderr: { text: "" } } };
+	apply(makeContext(captures));
+
+	await captures.definition.execute({ query: "auth", root: "C:/other-project", path: "./src" }, mockExec("C:/workspace"));
+
+	assert.equal(captures.request.workdir, resolve("C:/other-project"), "path resolves against the root, which is the run workdir");
+	assert.ok(captures.request.command.includes(quoteArg("./src")), "passes path through to the CLI");
+});
+
 test("execute accepts object-shaped JSON results", async () => {
 	const unitFile = "\\\\?\\C:\\workspace\\src\\lib.rs";
 	const captures = {
+		sections: [],
 		runResult: {
 			exitCode: 0,
 			timedOut: false,
