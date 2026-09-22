@@ -38,7 +38,7 @@ dsh plugin --profile web add (Get-ChildItem -Directory -Filter "dsh-*" | Where-O
 
 ```powershell
 pnpm install   # 根目录一次安装，全仓共享
-pnpm test      # 运行所有包的测试（91 个，离线）
+pnpm test      # 运行所有包的测试（102 个，离线）
 pnpm smoke     # 真实安装 + 真启动冒烟检查（需联网 + pnpm + PATH 上的 dsh）
 ```
 
