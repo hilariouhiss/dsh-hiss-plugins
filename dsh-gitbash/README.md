@@ -79,10 +79,10 @@ dsh-gitbash: DSH_GIT_BASH points at a missing file: C:\Definitely\Not\Here\bash.
 
 - **为什么用 realm 组，而不是替换宿主的 shell 行**：`ctx.shell` 在 Windows 上已由 `pwsh-sandbox` 提供，替换它会连 `pwsh` 工具一起劫持（一个跑 bash 的 PowerShell 工具），并使所有声明 `tool-pwsh` 的预设失效。组内 `isolate: { shell: true }` 让 loader 给这一组一份**私有** `shell` 实例：宿主的 `pwsh-sandbox` 继续供给根 realm，所有既有行与预设解析到的还是它；`bash` 工具必须待在组内（消费方留在 provider 的 realm 之外会解析到宿主的 pwsh 执行器）。
 - **为什么连 `settings` 一起隔离**：本执行器继承 `dsh-bash-sandbox` → `dsh-bash-local`，其构造函数会注册共享的 `shell` 设置命名空间；宿主执行器已经注册过，`ctx.settings.register` 对重复注册是 fail loud。隔离 `settings` 后本执行器根本看不到注册表、不注册任何命名空间，设置界面里的 `shell` 段仍归宿主执行器。组内没有任何行读设置。
-- **执行器**：继承 `dsh-bash-sandbox` 的 `SandboxBashExecutor`（复用 DSH 自己的沙箱分类、后台进程事实、超时/溢出/清理机制），只覆写三处：
-  - `confine()`：把继承来的 `bash` 换成解析出的绝对路径，并把 MSYS2 启动失败追加进 `denialSignatures`（前台 `run` 与后台 `start` 都经这条路径分类，判定一致）；
-  - `runArgv()` / `startArgv()`：`danger-full-access` 下父类**不走** `confine()`，而是自己拼一个字面量 `bash -c` 的 argv——Windows 上那正是 WSL 启动器，所以在这个 argv 接缝上把裸 `bash` 换成解析出的路径（只重写 `["bash","-c",cmd]` 这一种形状，沙箱 runner 包裹过的 argv 原样通过）；
-  - `run()`：给受限模式的启动失败补一句成因说明。
+- **执行器**：继承 `dsh-bash-sandbox` 的 `SandboxBashExecutor`（复用 DSH 自己的沙箱分类、后台进程事实、超时/溢出/清理机制），只覆写三处（接缝名跟随 0.1.7：`execute` / `executeArgv`，`confine` 为异步三参）：
+  - `confine()`：把继承来的 `bash` 换成解析出的绝对路径，并把 MSYS2 启动失败追加进 `denialSignatures`。提供方的 `ctx.sandbox.confine` 是**异步**的且接受取消信号，所以这里必须 `await` 并把信号透传（把 Promise 当对象展开会丢掉整个 argv）；前台与后台都经这条路径分类，判定一致；
+  - `executeArgv()`：`danger-full-access` 下父类**不走** `confine()`，而是自己拼一个字面量 `bash -c` 的 argv——Windows 上那正是 WSL 启动器，所以在这个 argv 接缝上把裸 `bash` 换成解析出的路径（只重写数组形状的 `["bash","-c",cmd]`；受限路径交给 `confine()` 的是准备回调，原样通过）；
+  - `execute()`：公开入口解析出的是**进程句柄**而非结算结果，所以给受限模式的启动失败补成因说明要包在 `result()` 上。
 
 ## 排错
 

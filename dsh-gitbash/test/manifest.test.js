@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const patch = readFileSync(new URL("../cordis.patch.yml", import.meta.url), "utf8");
@@ -30,9 +31,12 @@ test("harness packages are host-provided peers, never bundled dependencies", () 
 
 test("peer ranges declare the compatible floor and devDependencies pin exact versions", () => {
 	for (const name of HOST_PROVIDED) {
-		assert.match(manifest.peerDependencies[name], /^\^\d+\.\d+\.\d+-rc\.\d+$/u, `${name} peer range`);
+		assert.equal(
+			manifest.peerDependencies[name],
+			`^${manifest.devDependencies[name]}`,
+			`${name} must declare the generation this package is built and tested against as its floor`,
+		);
 	}
-	assert.match(manifest.devDependencies["@deepseek-ai/dsh-bash-sandbox"], /^\d+\.\d+\.\d+-rc\.\d+$/u);
 });
 
 test("the bundle patch is declared and shipped", () => {
@@ -80,4 +84,93 @@ test("the exported subpath wires the host's sandbox-consuming bash executor", as
 		Object.hasOwn(GitBashExecutor.prototype, "confine"),
 		"the resolved bash.exe must be substituted at the confinement boundary",
 	);
+});
+
+/**
+ * The executor seams are host API, and a prerelease harness renames them without notice:
+ * 0.1.7 turned `run`/`start`/`runArgv`/`startArgv` into `execute`/`executeArgv` and made
+ * `confine` asynchronous with a third `signal` argument. Overriding a name the host no
+ * longer calls is silent at import time and surfaces only as the wrong shell at run time,
+ * so this asserts the names against the generation installed here.
+ */
+test("the seams this plugin overrides still exist on the installed host executor", async () => {
+	const { SandboxBashExecutor } = await import("@deepseek-ai/dsh-bash-sandbox");
+	for (const seam of ["execute", "executeArgv", "confine"]) {
+		assert.equal(typeof SandboxBashExecutor.prototype[seam], "function", `the host executor must still expose ${seam}()`);
+	}
+	assert.equal(SandboxBashExecutor.prototype.confine.length, 3, "confine() must still take (command, policy, signal)");
+	const { default: GitBashExecutor } = await import("../lib/executor.js");
+	for (const seam of ["execute", "executeArgv", "confine"]) {
+		assert.ok(Object.hasOwn(GitBashExecutor.prototype, seam), `GitBashExecutor must override ${seam}()`);
+	}
+});
+
+/** The `bash.exe` a Git for Windows install owns, as the resolver would return it. */
+const GIT_BASH = join("C:", "Software", "Git", "bin", "bash.exe");
+
+/**
+ * Run one command through the *installed* executor with the subprocess seam faked.
+ *
+ * A seam can be lost without any rename: a host refactor that stops calling `executeArgv`,
+ * or hands `confine` a different contract, leaves the override in place and the wrong shell
+ * on the wire — which is exactly how 0.1.7 shipped a `bash` tool that ran WSL. Only the real
+ * base class can show that, so everything below `ctx.subprocess` is faked and everything
+ * above it is the host's own code.
+ *
+ * The instance is built from the prototype rather than the constructor because cordis's
+ * `Service` base needs a live fiber; the executor seams under test do not.
+ * @param {string} mode - the sandbox mode to run under.
+ * @returns {Promise<{spawned: object[], result: object}>} the spawn the host built and the settled outcome.
+ */
+async function runThroughHost(mode) {
+	const { SandboxBashExecutor } = await import("@deepseek-ai/dsh-bash-sandbox");
+	const { createGitBashExecutor } = await import("../lib/gitbash-executor.js");
+	const GitBashExecutor = createGitBashExecutor(SandboxBashExecutor, { resolveBash: () => GIT_BASH, platform: "win32" });
+
+	const spawned = [];
+	const reader = (text) => ({ readFrom: () => ({ text, lossy: false, nextOffset: text.length }) });
+	const executor = Object.create(GitBashExecutor.prototype);
+	Object.assign(executor, {
+		bashPath: GIT_BASH,
+		mode,
+		processFacts: new Map(),
+		ctx: {
+			logger: { info() {}, warn() {} },
+			subprocess: { spawn(spec) { spawned.push(spec); return { collected: { stdout: reader("ok\n"), stderr: reader("") }, done: Promise.resolve({ exitCode: 0, signal: null }), terminate() {} }; } },
+			sandboxPolicy: { defaultMode: mode, resolve: () => ({ mode, workspaceRoot: "C:/tmp" }) },
+			sandbox: { confine: async (argv, policy, signal) => ({ argv: ["runner", "--", ...argv], policy, signal, enforcement: "partial", denialSignatures: ["access is denied"], runnerFailureRules: [] }) },
+		},
+		config: {
+			cwd: { get: () => "C:/tmp" },
+			timeoutMs: { get: () => 5_000 },
+			maxTimeoutMs: { get: () => 60_000 },
+			maxOutputBytes: { get: () => 64 * 1024 },
+			maxSpillBytes: { get: () => 1024 * 1024 },
+			graceMs: { get: () => 3_000 },
+		},
+	});
+
+	const handle = await executor.execute({
+		command: "echo hi",
+		workdir: "C:/tmp",
+		timeoutMs: 5_000,
+		onExpiry: "kill",
+		stdoutMaxBytes: 64 * 1024,
+		sandboxPolicy: { mode, workspaceRoot: "C:/tmp" },
+	});
+	return { spawned, result: await handle.result() };
+}
+
+test("full access runs Git Bash through the installed executor's own call flow", async () => {
+	const { spawned, result } = await runThroughHost("danger-full-access");
+	assert.equal(spawned.length, 1, "exactly one process is spawned");
+	assert.deepEqual(spawned[0].argv, [GIT_BASH, "-c", "echo hi"], "PATH's bare `bash` must never reach the subprocess");
+	assert.equal(result.exitCode, 0, "the settled outcome still comes back");
+	assert.equal(result.sandbox.mode, "danger-full-access");
+});
+
+test("a confined run keeps the sandbox runner's argv around the resolved Git Bash", async () => {
+	const { spawned, result } = await runThroughHost("workspace-write");
+	assert.deepEqual(spawned[0].argv, ["runner", "--", GIT_BASH, "-c", "echo hi"]);
+	assert.equal(result.sandbox.enforcement, "partial", "the provider's facts survive the override");
 });

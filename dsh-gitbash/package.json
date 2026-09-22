@@ -1,6 +1,6 @@
 {
   "name": "@hilariouhiss/dsh-gitbash",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Git Bash as a first-class shell on Windows for DeepSeek Harness — a realm-scoped `ctx.shell` executor plus the standard `bash` tool, wired to the real Git for Windows bash.exe instead of PATH's WSL launcher.",
   "keywords": [
     "dsh",
@@ -36,12 +36,12 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@deepseek-ai/dsh-bash-sandbox": "^0.1.5-rc.2",
-    "@deepseek-ai/dsh-tool-bash": "^0.1.5-rc.2"
+    "@deepseek-ai/dsh-bash-sandbox": "^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-tool-bash": "^0.1.7-alpha.1"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-bash-sandbox": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-tool-bash": "0.1.5-rc.2"
+    "@deepseek-ai/dsh-bash-sandbox": "0.1.7-alpha.1",
+    "@deepseek-ai/dsh-tool-bash": "0.1.7-alpha.1"
   },
   "dsh": {
     "bundle": {

@@ -101,41 +101,50 @@ export function createGitBashExecutor(Base, { resolveBash = resolveGitBash, plat
 		/**
 		 * Wrap one command for the sandbox, replacing the inherited `bash` lookup with the
 		 * resolved Git Bash path and teaching the shared classifier MSYS2's startup failure.
-		 * Both {@link run} and {@link start} classify through this returned object, so the
-		 * denial is reported identically for foreground and background calls.
+		 * The provider confines asynchronously and accepts the signal that cancels preparation,
+		 * so the resolved argv is awaited before it is spread and the signal is forwarded.
 		 * @param {string} command - shell source for the inner `bash -c`.
 		 * @param {object} policy - resolved confined execution policy.
-		 * @returns {object} the provider's exact argv and settlement-classification facts.
+		 * @param {AbortSignal} [signal] - cancellation of confinement preparation.
+		 * @returns {Promise<object>} the provider's exact argv and settlement-classification facts.
 		 */
-		confine(command, policy) {
-			const confined = this.ctx.sandbox.confine([this.bashPath, "-c", command], policy);
+		async confine(command, policy, signal) {
+			const confined = await this.ctx.sandbox.confine([this.bashPath, "-c", command], policy, signal);
 			return {
 				...confined,
 				denialSignatures: [...(confined.denialSignatures ?? []), MSYS_STARTUP_SIGNATURE],
 			};
 		}
-		async run(spec) {
-			return explainConfinedStartupFailure(await super.run(spec));
+		/**
+		 * Keep the spawned program the resolved Git Bash on the unconfined path, whose argv the
+		 * base builds itself as the literal three-entry `bash -c <command>`. A confined run
+		 * prepares its own argv through {@link confine} and hands it over as a callback, so only
+		 * an argv array is rewritten and every other call shape passes through untouched.
+		 * @param {object} spec - the resolved spec being spawned.
+		 * @param {string[]|((signal: AbortSignal) => string[]|Promise<string[]>)} argvOrPrepare - the base's argv, or its preparation callback.
+		 * @param {Function} [onStarted] - the base's provider-facts hook.
+		 * @returns {object|Promise<object>} the live process handle.
+		 */
+		executeArgv(spec, argvOrPrepare, onStarted) {
+			return super.executeArgv(
+				spec,
+				Array.isArray(argvOrPrepare) ? withResolvedBash(argvOrPrepare, this.bashPath) : argvOrPrepare,
+				onStarted,
+			);
 		}
 		/**
-		 * Keep the spawned program the resolved Git Bash on both of the base's paths:
-		 * {@link confine} supplies it for confined runs, and this argv seam covers the
-		 * unconfined `danger-full-access` run, whose argv the base builds itself.
+		 * Annotate a denied MSYS2 startup failure on the settled outcome. The public entry is
+		 * `execute()`, which resolves with the process handle before the command has run, so the
+		 * annotation wraps `result()` — the one place the settled run and its sandbox facts are
+		 * both available — rather than a settled return value.
 		 * @param {object} spec - the resolved spec being spawned.
-		 * @param {string[]} argv - the argv the base chose.
-		 * @returns {object|Promise<object>} the settled run.
+		 * @returns {Promise<object>} the live process handle.
 		 */
-		runArgv(spec, argv) {
-			return super.runArgv(spec, withResolvedBash(argv, this.bashPath));
-		}
-		/**
-		 * The background twin of {@link runArgv}.
-		 * @param {object} spec - the resolved spec being spawned.
-		 * @param {string[]} argv - the argv the base chose.
-		 * @returns {object} the live process handle.
-		 */
-		startArgv(spec, argv) {
-			return super.startArgv(spec, withResolvedBash(argv, this.bashPath));
+		async execute(spec) {
+			const handle = await super.execute(spec);
+			const settled = handle.result.bind(handle);
+			handle.result = () => settled().then(explainConfinedStartupFailure);
+			return handle;
 		}
 	};
 }
