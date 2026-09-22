@@ -1,6 +1,6 @@
 {
   "name": "@hilariouhiss/dsh-colgrep",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "colgrep — semantic code search (ColBERT multi-vector) for DeepSeek Harness. Adds a `colgrep` tool that finds code by meaning, not exact text.",
   "keywords": [
     "dsh",
@@ -37,10 +37,10 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2"
+    "@deepseek-ai/dsh-tools": "^0.1.7-alpha.1"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-tools": "0.1.5-rc.2"
+    "@deepseek-ai/dsh-tools": "0.1.7-alpha.1"
   },
   "dsh": {
     "bundle": {

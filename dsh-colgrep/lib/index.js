@@ -159,7 +159,9 @@ export function apply(ctx) {
 				sandboxPolicy: policy,
 				...(workdir ? { workdir, env: { COLGREP_DATA_DIR: dataDir } } : {}),
 			});
-			const run = await ctx.shell.run(spec);
+			// The shell seam is `execute()` → handle → `result()` since 0.1.7; the
+			// older `run()` that settled the outcome directly no longer exists.
+			const run = await (await ctx.shell.execute(spec)).result();
 			const stdout = run.stdout && run.stdout.text ? run.stdout.text : "";
 			const stderr = run.stderr && run.stderr.text ? run.stderr.text : "";
 			const commandName = args.command || "search";

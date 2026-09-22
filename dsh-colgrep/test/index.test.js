@@ -22,8 +22,21 @@ function makeContext(captures) {
 				captures.request = request;
 				return request;
 			},
-			async run() {
-				return captures.runResult;
+			/**
+			 * The harness's shell seam since 0.1.7: `execute()` resolves with the
+			 * process handle and only `result()` carries the settled outcome. There
+			 * is no `run()` — mirroring the real service keeps a rename visible here
+			 * instead of at the model's first tool call.
+			 */
+			async execute(spec) {
+				captures.executed = (captures.executed ?? 0) + 1;
+				captures.executedSpec = spec;
+				return {
+					async result() {
+						captures.settled = (captures.settled ?? 0) + 1;
+						return captures.runResult;
+					},
+				};
 			},
 		},
 		sandboxPolicy: {
@@ -158,6 +171,18 @@ test("apply registers colgrep and execute shells out with a workspace-local inde
 	assert.equal(value.count, 1);
 	assert.equal(value.results[0].file, "C:\\workspace\\src\\main.rs");
 	assert.equal(value.results[0].score, 2.1);
+});
+
+test("execute runs the command through the shell's execute/result seam", async () => {
+	const captures = { sections: [], runResult: { exitCode: 0, timedOut: false, aborted: false, stdout: { text: "[]" }, stderr: { text: "" } } };
+	apply(makeContext(captures));
+
+	const value = await captures.definition.execute({ query: "auth" }, mockExec());
+
+	assert.equal(captures.executed, 1, "the tool must run through ctx.shell.execute");
+	assert.equal(captures.settled, 1, "the outcome must come from the handle's result()");
+	assert.ok(captures.executedSpec.command.startsWith("colgrep"), "the resolved spec is what executes");
+	assert.equal(value.ok, true);
 });
 
 test("execute roots the run at the requested project but keeps the index in the workspace", async () => {
