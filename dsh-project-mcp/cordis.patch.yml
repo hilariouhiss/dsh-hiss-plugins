@@ -1,0 +1,11 @@
+# @hilariouhiss/dsh-project-mcp bundle patch: one self-referencing host row.
+#
+# `dsh plugin --profile <name> add @hilariouhiss/dsh-project-mcp` installs this
+# package into the profile; because it declares `dsh.bundle.patch`, the profile
+# manifest appends it to the bundle list, and this patch is applied as a layer
+# on boot. The row resolves `@hilariouhiss/dsh-project-mcp` from the profile's
+# own node_modules, so `apply(ctx)` runs in the host plane and sees every agent
+# the profile creates.
+- insert:
+    - id: project-mcp
+      name: '@hilariouhiss/dsh-project-mcp'

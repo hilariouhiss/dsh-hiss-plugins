@@ -10,6 +10,7 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 | [dsh-superpowers](dsh-superpowers)（npm: `@hilariouhiss/dsh-superpowers`） | Superpowers 软件开发方法论插件（brainstorming、TDD、系统化调试、subagent 驱动开发等 14 个技能 + 会话引导），源自 [obra/superpowers](https://github.com/obra/superpowers) |
 | [dsh-colgrep](dsh-colgrep)（npm: `@hilariouhiss/dsh-colgrep`） | colgrep 语义代码检索插件（`colgrep` 工具，按含义而非精确文本找代码，需 `colgrep` CLI），源自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid) |
 | [dsh-codegraph](dsh-codegraph)（npm: `@hilariouhiss/dsh-codegraph`） | CodeGraph 代码图插件（MCP 集成，`codegraph_explore` 工具，需 `codegraph` CLI），源自 [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) |
+| [dsh-project-mcp](dsh-project-mcp)（npm: `@hilariouhiss/dsh-project-mcp`） | 自动加载项目目录下 `.mcp.json` 声明的 MCP server，按会话挂载、按项目隔离（Claude Code 的 `.mcp.json` 格式） |
 | [dsh-gitbash](dsh-gitbash)（npm: `@hilariouhiss/dsh-gitbash`） | Windows 上把 Git Bash 接入为一级 shell（`bash` 工具，解析真正的 Git for Windows `bash.exe` 而非 PATH 上的 WSL 启动器；三档权限模式语义不变，受限模式下按标准升级路径使用） |
 | [dsh-taste-skill](dsh-taste-skill)（npm: `@hilariouhiss/dsh-taste-skill`） | 前端设计品味技能集（13 个技能：设计/改版/出图/图转码/品牌板/完整输出），源自 [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) |
 
@@ -23,7 +24,7 @@ DeepSeek Harness (dsh) 插件集合仓库（pnpm workspace 单仓）。
 
 ```powershell
 # 从 npm 装（要求各包都已发布）
-dsh plugin --profile web add @hilariouhiss/dsh-ponytail @hilariouhiss/dsh-colgrep @hilariouhiss/dsh-codegraph @hilariouhiss/dsh-gitbash @hilariouhiss/dsh-taste-skill @hilariouhiss/dsh-superpowers
+dsh plugin --profile web add @hilariouhiss/dsh-ponytail @hilariouhiss/dsh-colgrep @hilariouhiss/dsh-codegraph @hilariouhiss/dsh-project-mcp @hilariouhiss/dsh-gitbash @hilariouhiss/dsh-taste-skill @hilariouhiss/dsh-superpowers
 
 # 从本仓 checkout 装（含尚未发布的包；在仓库根目录执行；自动跟随以后新增的插件目录）
 dsh plugin --profile web add (Get-ChildItem -Directory -Filter "dsh-*" | Where-Object Name -ne "dsh-skill-kit" | ForEach-Object { "link:./$($_.Name)" })
@@ -38,7 +39,7 @@ dsh plugin --profile web add (Get-ChildItem -Directory -Filter "dsh-*" | Where-O
 
 ```powershell
 pnpm install   # 根目录一次安装，全仓共享
-pnpm test      # 运行所有包的测试（102 个，离线）
+pnpm test      # 运行所有包的测试（127 个，离线）
 pnpm smoke     # 真实安装 + 真启动冒烟检查（需联网 + pnpm + PATH 上的 dsh）
 ```
 
@@ -78,6 +79,7 @@ pnpm run publish:dsh-ponytail
 pnpm run publish:dsh-superpowers
 pnpm run publish:dsh-colgrep
 pnpm run publish:dsh-codegraph
+pnpm run publish:dsh-project-mcp
 pnpm run publish:dsh-gitbash
 pnpm run publish:dsh-taste-skill
 ```
