@@ -104,7 +104,8 @@ test("stripPathPrefix removes the Windows long-path prefix", () => {
 
 test("quoteArg single-quotes and escapes embedded quotes", () => {
 	assert.equal(quoteArg("a b"), "'a b'");
-	assert.equal(quoteArg("it's"), "'it''s'");
+	assert.equal(quoteArg("it's"), "'it'\\''s'");
+	assert.equal(quoteArg("foo'bar"), "'foo'\\''bar'");
 });
 
 test("normalizeResults strips prefixes and trims to owned fields", () => {
@@ -230,6 +231,70 @@ test("execute still passes path through when rooted at another project", async (
 
 	assert.equal(captures.request.workdir, resolve("C:/other-project"), "path resolves against the root, which is the run workdir");
 	assert.ok(captures.request.command.includes(quoteArg("./src")), "passes path through to the CLI");
+});
+
+test("buildArgs supports agent mode by omitting --json and adding --agent", () => {
+	assert.deepEqual(
+		buildArgs({ query: "auth", agent: true }),
+		["colgrep", "--agent", "--color", "never", "-y", "-k", "15", "auth"],
+	);
+	assert.deepEqual(
+		buildArgs({ query: "auth", agent: true, top_k: 5, pattern: "fn", include: "*.rs", code_only: true, no_update: true }),
+		["colgrep", "--agent", "--color", "never", "-y", "--no-update", "-k", "5", "-e", "fn", "--include", "*.rs", "--code-only", "auth"],
+	);
+});
+
+test("buildArgs ignores query for maintenance commands", () => {
+	assert.deepEqual(buildArgs({ command: "init", query: "ignored" }), ["colgrep", "init", "-y"]);
+	assert.deepEqual(buildArgs({ command: "status", query: "ignored" }), ["colgrep", "status"]);
+	assert.deepEqual(buildArgs({ command: "clear", query: "ignored" }), ["colgrep", "clear"]);
+});
+
+test("renderOutput formats agent mode plain text results", () => {
+	const text = renderOutput({
+		command: "search",
+		agent: true,
+		query: "auth",
+		ok: true,
+		stdout: "src/auth.rs:10-25\nsrc/login.rs:40-60",
+	});
+	assert.ok(text.includes('colgrep (agent): 2 location(s) for "auth"'));
+	assert.ok(text.includes("src/auth.rs:10-25"));
+	assert.ok(text.includes("src/login.rs:40-60"));
+});
+
+test("execute accepts plain text locations in agent mode without JSON.parse failure", async () => {
+	const captures = {
+		sections: [],
+		runResult: {
+			exitCode: 0,
+			timedOut: false,
+			aborted: false,
+			stdout: { text: "src/auth.rs:10-25\nsrc/login.rs:40-60\n" },
+			stderr: { text: "" },
+		},
+	};
+	apply(makeContext(captures));
+
+	const value = await captures.definition.execute({ query: "auth", agent: true }, mockExec());
+
+	assert.equal(value.ok, true);
+	assert.equal(value.agent, true);
+	assert.equal(value.count, 2);
+	assert.deepEqual(value.locations, ["src/auth.rs:10-25", "src/login.rs:40-60"]);
+	assert.ok(captures.request.command.includes("--agent"));
+	assert.ok(!captures.request.command.includes("--json"));
+});
+
+test("apply registers tool with flexible query and agent parameter in schema", () => {
+	const captures = { sections: [] };
+	apply(makeContext(captures));
+
+	const props = captures.definition.parameters.properties;
+	assert.equal(props.query.required, undefined);
+	assert.ok(!captures.definition.parameters.required?.includes("query"));
+	assert.equal(props.agent.type, "boolean");
+	assert.ok(props.agent.description.includes("--agent"));
 });
 
 test("execute accepts object-shaped JSON results", async () => {
