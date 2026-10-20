@@ -32,7 +32,7 @@ export function stripPathPrefix(path) {
 }
 
 export function quoteArg(value) {
-	return "'" + String(value).replace(/'/g, "''") + "'";
+	return "'" + String(value).replace(/'/g, "'\\''") + "'";
 }
 
 export function buildArgs(args) {
@@ -42,7 +42,12 @@ export function buildArgs(args) {
 		if (typeof args.query !== "string" || args.query.trim() === "") {
 			throw new Error("query must be a non-empty string");
 		}
-		argv.push("--json", "--color", "never", "-y");
+		if (args.agent) {
+			argv.push("--agent");
+		} else {
+			argv.push("--json");
+		}
+		argv.push("--color", "never", "-y");
 		if (args.no_update) argv.push("--no-update");
 		argv.push("-k", String(args.top_k ? Number(args.top_k) : 15));
 		if (args.pattern) argv.push("-e", args.pattern);
@@ -85,7 +90,28 @@ export function normalizeResults(parsed) {
 export function renderOutput(value) {
 	if (!value || typeof value !== "object") return String(value);
 	const lines = [];
-	if (value.command === "search" && Array.isArray(value.results)) {
+	if (value.command === "search" && value.agent) {
+		if (value.ok) {
+			const locations = Array.isArray(value.locations)
+				? value.locations
+				: value.stdout
+					? value.stdout
+						.trim()
+						.split(/\r?\n/)
+						.map((line) => stripPathPrefix(line.trim()))
+						.filter(Boolean)
+					: [];
+			lines.push(`colgrep (agent): ${locations.length} location(s) for ${JSON.stringify(value.query)}`);
+			if (locations.length > 0) {
+				lines.push("");
+				lines.push(locations.join("\n"));
+			}
+		} else {
+			lines.push("colgrep search failed (ok=false)");
+			if (value.stderr) lines.push(`[stderr]\n${value.stderr}`);
+			else if (value.stdout) lines.push(`[stdout]\n${value.stdout}`);
+		}
+	} else if (value.command === "search" && Array.isArray(value.results)) {
 		lines.push(`colgrep: ${value.results.length} result(s) for ${JSON.stringify(value.query)}`);
 		value.results.forEach((result, index) => {
 			const file = result.file || result.qualified_name || "?";
@@ -125,7 +151,7 @@ export function apply(ctx) {
 		name: "colgrep",
 		description: TOOL_DESCRIPTION,
 		parameters: {
-			query: { type: "string", description: "Natural-language query (used by search).", required: true },
+			query: { type: "string", description: "Natural-language query (used by search)." },
 			command: { type: "string", enum: ["search", "init", "status", "clear"], description: "Operation. search (default) finds code; init builds/updates the index; status reports index state; clear removes the index." },
 			root: { type: "string", description: "Project directory to search or index (default: the workspace root). Absolute or relative to the workspace." },
 			path: { type: "string", description: "File or directory of `root` to search (default: the whole root). colgrep searches this target and falls back to the project index, so it is a focus, not a hard filter — narrow with `include` or `pattern` instead." },
@@ -134,6 +160,7 @@ export function apply(ctx) {
 			include: { type: "string", description: "Only search files matching this glob (--include), e.g. \"*.rs\"." },
 			code_only: { type: "boolean", description: "Only search code files; skip text/config files such as md/txt/yaml/json (--code-only)." },
 			no_update: { type: "boolean", description: "Skip automatic index update and search the existing index as-is (--no-update)." },
+			agent: { type: "boolean", description: "Run colgrep in autonomous sub-agent mode (--agent). When true, colgrep uses its local 2B model to investigate and returns localized file locations (file:START-END)." },
 		},
 		output: {
 			schema: { type: "json" },
@@ -174,6 +201,24 @@ export function apply(ctx) {
 			};
 			if (commandName !== "search") {
 				return { ...common, stdout, stderr };
+			}
+			if (args.agent) {
+				const locations = stdout
+					? stdout
+						.trim()
+						.split(/\r?\n/)
+						.map((line) => stripPathPrefix(line.trim()))
+						.filter(Boolean)
+					: [];
+				return {
+					...common,
+					query: args.query,
+					agent: true,
+					count: locations.length,
+					locations,
+					stdout,
+					stderr,
+				};
 			}
 			let parsed = null;
 			try {

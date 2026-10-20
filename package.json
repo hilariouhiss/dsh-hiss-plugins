@@ -1,11 +1,45 @@
 {
-  "name": "dsh-plugins",
-  "version": "0.0.0",
+  "name": "dsh-hiss-plugins",
+  "version": "1.1.0",
   "private": true,
-  "description": "DeepSeek Harness (dsh) 插件集合仓库。",
+  "description": "dsh-hiss-plugins — one DeepSeek Harness bundle carrying six independently switchable plugins (colgrep, codegraph, project-mcp, git-bash, superpowers, ponytail) plus a management tab in the Plugins page.",
+  "type": "module",
+  "main": "./dsh-hiss-plugins/lib/index.js",
+  "exports": {
+    ".": "./dsh-hiss-plugins/lib/index.js",
+    "./colgrep": "./dsh-hiss-plugins/lib/colgrep/index.js",
+    "./codegraph": "./dsh-hiss-plugins/lib/codegraph/index.js",
+    "./project-mcp": "./dsh-hiss-plugins/lib/project-mcp/index.js",
+    "./gitbash": "./dsh-hiss-plugins/lib/gitbash/index.js",
+    "./superpowers": "./dsh-hiss-plugins/lib/superpowers/index.js",
+    "./ponytail": "./dsh-hiss-plugins/lib/ponytail/index.js",
+    "./client": "./dsh-hiss-plugins/lib/client.js",
+    "./locale/*.json": "./dsh-hiss-plugins/locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-bash-sandbox": "^0.2.0-rc.2 || ^0.2.1-alpha.4",
+    "@deepseek-ai/dsh-llm": "^0.2.0-rc.2 || ^0.2.1-alpha.4",
+    "@deepseek-ai/dsh-mcp-client": "^0.2.0-rc.2 || ^0.2.1-alpha.4",
+    "@deepseek-ai/dsh-skill": "^0.2.0-rc.2 || ^0.2.1-alpha.4",
+    "@deepseek-ai/dsh-tool-bash": "^0.2.0-rc.2 || ^0.2.1-alpha.4",
+    "@deepseek-ai/dsh-tools": "^0.2.0-rc.2 || ^0.2.1-alpha.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./dsh-hiss-plugins/cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-modules"
+      ]
+    }
+  },
   "scripts": {
-    "test": "pnpm -r test && node --test scripts/resolve-tag.test.mjs",
+    "test": "pnpm -r test && node --test scripts/resolve-tag.test.mjs scripts/root-manifest.test.mjs",
     "smoke": "node scripts/smoke-profile.mjs",
-    "publish:dsh-hiss-plugins": "pnpm --filter dsh-hiss-plugins publish"
+    "publish:dsh-hiss-plugins": "pnpm --filter ./dsh-hiss-plugins publish"
   }
 }
