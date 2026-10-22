@@ -156,6 +156,7 @@ colgrep command:"init" / command:"status" / command:"clear"
 - **首轮即生效**：挂载发生在 `agent/created`（宿主会 await 这个监听器）里，会话第一次对话就能看到工具；插件 reload 时也会给已经活着的 agent 补挂一次。
 - **${VAR} 展开**：`${TOKEN}` / `${TOKEN:-默认值}` 在挂载时用宿主进程环境求值，`.mcp.json` 里不必写明文密钥。
 - **失败不致命**：坏 JSON、不支持的 transport、起不来的 server 都只影响它自己，打一条 warn，会话照常开。
+- **`/mcp` 看状态**：在本项目的会话里执行 `/mcp`，逐条列出 `.mcp.json` 声明的 server 与其实时状态 —— `connected, N tools`（MCP 桥连上并同步工具后才注册工具）、`no tools`（没连上，或 server 本身不暴露工具）、`skipped`（条目映射不了）、`unusable`（宿主 MCP 桥的 schema 拒绝）；另外报告本会话里来自项目外配置的 MCP 工具总数。状态读的是当前 agent 自己的工具表，所以列的是**此刻真正可用**的工具；命令不接受参数。
 
 `.mcp.json` 就是 Claude Code 的项目级 MCP 配置文件：
 
@@ -186,7 +187,7 @@ colgrep command:"init" / command:"status" / command:"clear"
 
 工作原理：`agent/created` → 会话 cwd → 向上找 `.mcp.json`（止于含 `.git` 的项目根）→ 解析 `mcpServers`、逐条映射成 `dsh-mcp-client` 的 config → 用宿主自己的 `McpClient.Config(...)` schema 校验 → `await agent.ctx.plugin(McpClient, config)` 挂进该 agent 的 scope。
 
-验证：在某个项目根放一份 `.mcp.json`，重启 dsh，在该项目里开会话；问模型「列出你能用的 mcp 工具」，或直接调用 `mcp__<server>__<tool>`。宿主日志里能看到 `project-mcp: mounted N server(s) for <agent id>`。
+验证：在某个项目根放一份 `.mcp.json`，重启 dsh，在该项目里开会话；执行 `/mcp` 看每个 server 的实时状态，问模型「列出你能用的 mcp 工具」，或直接调用 `mcp__<server>__<tool>`。宿主日志里能看到 `project-mcp: mounted N server(s) for <agent id>`。
 
 安全边界：
 
@@ -198,6 +199,7 @@ colgrep command:"init" / command:"status" / command:"clear"
 2. **每个会话一套连接**：多会话同时开在同一项目会各起一份 MCP server 进程。
 3. **不支持 `sse`**：宿主 MCP 桥只支持 `stdio` 与 `streamable-http`，`sse` 条目会被跳过并告警。
 4. **只看 `.mcp.json`**：不读 `.dsh/mcp.yml`、用户层配置或 `~/.claude.json`。
+5. **`/mcp` 只列本项目声明的 server**：项目外（profile / preset 里）配置的 MCP server 只计入末尾的工具总数，不列名字 —— 宿主没有公开这些行的配置，公开的工具名也按设计不可反解出 server 名。
 
 ## 功能：git-bash
 
@@ -353,8 +355,8 @@ test/                 node:test：<feature>/ 七个目录 + manifest / patch / c
 ## 发布（给维护者）
 
 ```powershell
-git tag dsh-hiss-plugins@1.2.0        # 必须与本目录 package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.2.0
+git tag dsh-hiss-plugins@1.2.1        # 必须与本目录 package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.2.1
 ```
 
 CI（`.github/workflows/publish.yml`，Windows runner）解析 tag、跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token）** 发布；包内 `prepublishOnly` 会再跑一次 `npm test`。手工发布：`npm publish`（`publishConfig.access` 已设为 public），发版前先 `node ../scripts/smoke-profile.mjs` 走一遍真实安装 + 真启动。发布新版本前记得递增 `package.json` 的 `version`。

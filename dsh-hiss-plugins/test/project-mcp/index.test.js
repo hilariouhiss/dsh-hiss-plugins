@@ -42,17 +42,66 @@ function fakeAgent(cwd, options = {}) {
 	return { agent, mounted };
 }
 
-/** Collect warnings so error branches are asserted, not assumed. */
-function fakeContext() {
+/**
+ * Stand in for the host context: warnings, the command registry, the tool
+ * registry, and an `inject` that resolves immediately because the fake host
+ * already has every service the command asks for.
+ * @param {{ toolNames?: string[] }} [options] - tools the agent's registry shows.
+ */
+function fakeContext(options = {}) {
 	const warnings = [];
-	return {
+	const registered = [];
+	const schemas = [];
+	const toolNames = options.toolNames ?? [];
+	const ctx = {
 		warnings,
+		registered,
+		schemas,
 		logger: {
 			warn(message) {
 				warnings.push(String(message));
 			},
 		},
+		tools: {
+			schemas(scope) {
+				schemas.push(scope);
+				return toolNames.map((name) => ({ name }));
+			},
+		},
+		commands: {
+			register(definition) {
+				registered.push(definition);
+			},
+		},
+		inject(_services, callback) {
+			callback(ctx);
+		},
 	};
+	return ctx;
+}
+
+/** A host context with the agent registry `apply` wires into. */
+function fakeHost(options = {}) {
+	return { ...fakeContext(options), agents: { list: () => [] }, on() {} };
+}
+
+/** One `/mcp` invocation from a session in `cwd`. */
+function commandInvocation(cwd, rawInput = "") {
+	return {
+		rawInput,
+		agent: { id: "agent-1", session: { header: cwd === undefined ? {} : { cwd } } },
+		attachments: [],
+		signal: new AbortController().signal,
+	};
+}
+
+/** Load the plugin into a fake host and return the registered `/mcp` command. */
+function loadCommand(options = {}) {
+	const ctx = fakeHost(options);
+	apply(ctx);
+	const command = ctx.registered.find((definition) => definition.name === "mcp");
+	assert.ok(command, "the row must register the /mcp command");
+	return { ctx, command };
 }
 
 /** Poll until `ready` holds, so a background sweep needs no fixed sleep. */
@@ -209,4 +258,96 @@ test("apply never lets a mounting failure escape the creation listener", async (
 	await assert.doesNotReject(() => listeners.get("agent/created")({ agent }));
 	assert.equal(ctx.warnings.length, 1);
 	assert.match(ctx.warnings[0], /fs/);
+});
+
+test("/mcp reports connected, skipped, unusable, and other servers", async () => {
+	const cwd = projectWithServers({
+		fs: { command: "npx" },
+		web: { type: "http", url: "https://example.com/mcp" },
+		broken: {},
+		"bad name": { command: "npx" },
+	});
+	const { command, ctx } = loadCommand({
+		toolNames: ["mcp__fs__read", "mcp__fs__write", "mcp__web__search", "mcp__matlab__run", "read"],
+	});
+	const invocation = commandInvocation(cwd);
+
+	const result = await command.handler(invocation);
+
+	assert.equal(result.kind, "success");
+	assert.match(result.text, /^MCP servers for .*\.mcp\.json:$/mu);
+	assert.match(result.text, /^- fs: connected, 2 tools$/mu);
+	assert.match(result.text, /^- web: connected, 1 tool$/mu);
+	assert.match(result.text, /^- broken: skipped - "broken": command/mu);
+	assert.match(result.text, /^- bad name: unusable - /mu);
+	assert.match(result.text, /^Other MCP tools in this session: 1 \(servers configured outside this project\)\.$/mu);
+	assert.deepEqual(ctx.schemas, [invocation.agent], "status is read from this agent's own tool view");
+});
+
+test("/mcp reports a declared server with no live tools", async () => {
+	const cwd = projectWithServers({ memory: { command: "npx" } });
+	const { command } = loadCommand({ toolNames: ["mcp__matlab__run"] });
+
+	const result = await command.handler(commandInvocation(cwd));
+
+	assert.equal(result.kind, "success");
+	assert.match(result.text, /^- memory: no tools \(not connected, or the server exposes none\)$/mu);
+	assert.match(result.text, /^Other MCP tools in this session: 1 \(servers configured outside this project\)\.$/mu);
+});
+
+test("/mcp reports a project config that declares no servers", async () => {
+	const cwd = projectWith("{}");
+	const { command } = loadCommand();
+
+	const result = await command.handler(commandInvocation(cwd));
+
+	assert.equal(result.kind, "success");
+	assert.match(result.text, /^- none declared$/mu);
+	assert.doesNotMatch(result.text, /Other MCP tools/);
+});
+
+test("/mcp reports a missing project config and the session's other MCP tools", async () => {
+	const root = mkdtempSync(join(tmpdir(), "project-mcp-"));
+	mkdirSync(join(root, ".git"), { recursive: true });
+	const { command } = loadCommand({ toolNames: ["mcp__matlab__run", "mcp__codegraph__explore", "read"] });
+
+	const result = await command.handler(commandInvocation(root));
+
+	assert.equal(result.kind, "success");
+	assert.equal(
+		result.text,
+		`No .mcp.json found for this project (${root}).\n\nOther MCP tools in this session: 2 (servers configured outside this project).`,
+	);
+});
+
+test("/mcp reports a malformed config as an error", async () => {
+	const cwd = projectWith("{ not json");
+	const { command } = loadCommand();
+
+	const result = await command.handler(commandInvocation(cwd));
+
+	assert.equal(result.kind, "error");
+	assert.match(result.text, /not valid JSON/);
+});
+
+test("/mcp rejects arguments", async () => {
+	const cwd = projectWithServers({ fs: { command: "npx" } });
+	const { command, ctx } = loadCommand({ toolNames: ["mcp__fs__read"] });
+
+	const result = await command.handler(commandInvocation(cwd, " extra"));
+
+	assert.deepEqual(result, { kind: "error", text: "Usage: /mcp (no arguments)" });
+	assert.deepEqual(ctx.schemas, [], "a usage error must not touch the tool registry");
+});
+
+test("/mcp reports a session without a working directory", async () => {
+	const { command, ctx } = loadCommand({ toolNames: ["mcp__fs__read"] });
+
+	const result = await command.handler(commandInvocation(undefined));
+
+	assert.deepEqual(result, {
+		kind: "error",
+		text: "No session working directory; no project MCP servers are mounted.",
+	});
+	assert.deepEqual(ctx.schemas, []);
 });

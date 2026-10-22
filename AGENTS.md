@@ -16,11 +16,11 @@
 
 | 路径 | 提供 |
 |---|---|
-| `dsh-hiss-plugins/` | 唯一的包（v1.2.0）：七个功能 + Plugins 页里的管理标签 |
+| `dsh-hiss-plugins/` | 唯一的包（v1.2.1）：七个功能 + Plugins 页里的管理标签 |
 | `dsh-hiss-plugins/lib/index.js` | 载体行：空的 host 半，只为让浏览器半被送出 |
 | `dsh-hiss-plugins/lib/colgrep/` | `colgrep` 模型工具（语义检索，`root` 可指定项目） |
 | `dsh-hiss-plugins/lib/codegraph/` | 经 MCP 注册 `mcp__codegraph__*` 工具 + 无索引时的建图引导 |
-| `dsh-hiss-plugins/lib/project-mcp/` | 读会话项目根的 `.mcp.json`，挂进该 agent 自己的 scope（按会话隔离、子 agent 继承） |
+| `dsh-hiss-plugins/lib/project-mcp/` | 读会话项目根的 `.mcp.json`，挂进该 agent 自己的 scope（按会话隔离、子 agent 继承）；`status.js` 是 `/mcp` 报告的纯逻辑，`index.js` 注册宿主 `/mcp` 命令 |
 | `dsh-hiss-plugins/lib/gitbash/` | Windows 上接入 Git Bash：行自带 realm 隔离，同一 realm 内提供 `ctx.shell` 与宿主 `bash` 工具 |
 | `dsh-hiss-plugins/lib/superpowers/` | superpowers 常驻引导：只注册全局提示词段 `superpowers:adoption`（技能仍由 DSH 原生发现，不安装、不内置技能） |
 | `dsh-hiss-plugins/lib/ponytail/` | ponytail 采纳提示段 + 宿主 `/ponytail` 等级命令；`lib/ponytail/mode.js` 管等级语法、默认值解析与按 agent 的等级表 |
@@ -29,7 +29,7 @@
 | `dsh-hiss-plugins/locale/` | 管理标签的中 / 英文字典；`meta` 是 Plugins 页显示的包信息 |
 | `dsh-hiss-plugins/test/` | node:test 单测：七个 `<feature>/` 目录 + `manifest.test.js` + `patch.test.js` + `client.test.js` |
 
-功能与宿主 peer 的对应：`colgrep` → `dsh-tools`；`codegraph`、`project-mcp` → `dsh-mcp-client`；`gitbash` → `dsh-bash-sandbox` + `dsh-tool-bash`；`ponytail` → `dsh-llm` + `dsh-skill`（`createUserMessage` 与 `renderSkillContent`）；`init` → `dsh-llm`（`createUserMessage`），另用 `commands` / `workingDirectory` 两个 ctx 服务；`superpowers` 只用 ctx 服务、不导入宿主包。这六个 `@deepseek-ai/*` 都是**宿主提供的 peer**，见 §3.4。
+功能与宿主 peer 的对应：`colgrep` → `dsh-tools`；`codegraph`、`project-mcp` → `dsh-mcp-client`（`/mcp` 另用 `commands` / `tools` 两个 ctx 服务，经 `ctx.inject` 注册：缺服务只丢命令，不影响挂载）；`gitbash` → `dsh-bash-sandbox` + `dsh-tool-bash`；`ponytail` → `dsh-llm` + `dsh-skill`（`createUserMessage` 与 `renderSkillContent`）；`init` → `dsh-llm`（`createUserMessage`），另用 `commands` / `workingDirectory` 两个 ctx 服务；`superpowers` 只用 ctx 服务、不导入宿主包。这六个 `@deepseek-ai/*` 都是**宿主提供的 peer**，见 §3.4。
 
 > 历史：原有六块功能各自是一个独立发布的 bundle 包（superpowers 与 ponytail 那两个技能包在合并前先被删掉，现在以功能行的形式回到同一个包里；每个旧包各有自己的 `package.json`、`cordis.patch.yml`、`test/manifest.test.js` 和发布 tag）。现在只有上面的一个包、一条发布线；旧包名、旧目录名不要再出现在代码或文档里。
 
@@ -75,8 +75,8 @@ profile 的每个 bundle 各贡献一层 patch，本包的 `cordis.patch.yml` �
 | ctx 服务 | 用途 |
 |---|---|
 | `ctx.systemPrompt.section({ name, order, text })` | 注入提示词段；`text` 可为 `(context) => string`，每回合重算 |
-| `ctx.tools.register(defineTool({ ... }))` | 模型工具 |
-| `ctx.commands.register(...)`、`ctx.workingDirectory.ensure(agent, signal)`、`agent.followup(...)` | 注册宿主斜杠命令；解析会话工作目录；把一条持久 user 消息交给模型（`/ponytail`、`/init`） |
+| `ctx.tools.register(defineTool({ ... }))` | 模型工具；`ctx.tools.schemas(agent)` 读该 agent 此刻可见的工具（`/mcp` 用它判断哪些 MCP server 真正连上） |
+| `ctx.commands.register(...)`、`ctx.workingDirectory.ensure(agent, signal)`、`agent.followup(...)` | 注册宿主斜杠命令；解析会话工作目录；把一条持久 user 消息交给模型（`/ponytail`、`/init`、`/mcp`） |
 | `ctx.shell.resolve` → `ctx.shell.execute` → `result()` + `ctx.sandboxPolicy.resolve` | 在沙箱策略内调用外部 CLI（0.1.7 起 `execute()` 先给进程句柄，结算结果在 `result()` 上；旧的 `run()` 已移除） |
 | `ctx.plugin({ inject, apply }, config)` | 嵌套加载其它插件（codegraph 挂 MCP 桥；gitbash 在自己的 realm 里挂宿主 `bash` 工具） |
 | `ctx.agents.list()` / `ctx.on("agent/created", …)` | 按会话接线：project-mcp 在 agent 建好前挂载（宿主 await 这个监听器），子 agent 自然继承 |
@@ -96,7 +96,7 @@ profile 的每个 bundle 各贡献一层 patch，本包的 `cordis.patch.yml` �
 - ESM、import 带显式 `.js` 后缀、Node ≥ 20；**纯 JS + JSDoc，无 TypeScript、无构建步骤**；**缩进用 TAB**；双引号、分号；具名导出；私有字段 `#`；注释写 why 不写 what。
 - 测试用 Node 内置 `node:test` + `node:assert/strict`，零依赖。**不启动真实 DSH**：手写 fake `ctx` 捕获注册调用，`mkdtempSync` 临时目录做 fixture。覆盖导出形状、注册次数、argv 组装、渲染函数与**错误分支**。浏览器半同理：`test/client.test.js` 用 fake `window.__ModuleLoader__` + fake `ctx` 捕获 slot 注册与 remote 调用（成功 / 失败 / 需要重启三个分支），不启动浏览器。
 - 命令见上面的「安装与检查」。基线以 **`pnpm test` 的输出**为准，本文件不写死数字。**在 DSH 沙箱内 `pnpm test` 可能以 `spawn EPERM` 失败** —— 沙箱禁止带管道的子进程 stdio，而 `node --test` 要为每个测试文件 spawn 子进程；这是**环境限制，不是测试失败**，改在包目录内跑 `node --test-isolation=none --test`。新增 / 换代时同步 `pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude`（刚发布的预发布版会被 pnpm 的发布时长策略挡掉，报成 `ERR_PNPM_NO_MATCHING_VERSION`）：`dsh-*` 写该代精确版本；`cordis` / `cordis-plugin-*` / `cosmokit` / `schemastery` 若需要排除，用它们各自的版本号（**独立版本线**），别写成 `0.2.1-alpha.4`。`pnpm-workspace.yaml` 的 `packages:` 里那组带 `||` 的 `@deepseek-ai/*@版本` 条目不匹配任何 workspace 目录，别把新版本只加在那里。
-- **`lib/` 里凡是导入宿主包的模块，在沙箱内都跑不了测试**（见 §6 的 reparse point 条目）。要测的逻辑就放进不导入宿主包的模块：`lib/project-mcp/config.js`（`.mcp.json` 定位/解析/映射）、`lib/gitbash/resolve.js`（Git Bash 解析）、`lib/ponytail/mode.js`（ponytail 等级语法、默认值与按 agent 的等级表）与 `lib/init/prompt.js`（`/init` 指令正文与目标/章节常量）零宿主依赖、分支全覆盖地跑单测，`lib/*/index.js` 只承担宿主接缝。沙箱内需要真实依赖时，用 `npm install <pkg>` 在临时目录建一份真实目录布局再跑（`npm` 不走 pnpm 的符号链接农场）。
+- **`lib/` 里凡是导入宿主包的模块，在沙箱内都跑不了测试**（见 §6 的 reparse point 条目）。要测的逻辑就放进不导入宿主包的模块：`lib/project-mcp/config.js`（`.mcp.json` 定位/解析/映射）、`lib/project-mcp/status.js`（`/mcp` 报告与 MCP 工具归属）、`lib/gitbash/resolve.js`（Git Bash 解析）、`lib/ponytail/mode.js`（ponytail 等级语法、默认值与按 agent 的等级表）与 `lib/init/prompt.js`（`/init` 指令正文与目标/章节常量）零宿主依赖、分支全覆盖地跑单测，`lib/*/index.js` 只承担宿主接缝。沙箱内需要真实依赖时，用 `npm install <pkg>` 在临时目录建一份真实目录布局再跑（`npm` 不走 pnpm 的符号链接农场）。
 - **覆写宿主接缝的模块，测试必须打到真实基类**：0.1.7 把执行器接缝从 `run`/`start`/`runArgv`/`startArgv` 改成 `execute`/`executeArgv`，覆写旧名字在 import 期**完全静默**，只在调用时表现为"跑错 shell"。`lib/gitbash/gitbash-executor.js` 覆写 `confine`/`executeArgv`/`execute`，`test/gitbash/` 因此既断言接缝名/参数个数，也用真实 `SandboxBashExecutor`（只假 `ctx.subprocess`）跑一遍完整调用链，把这三个接缝钉在当前运行时代次（`0.2.1-alpha.4`）上 —— 纯 fake 基类会把宿主的行为变成测试自己的假设。
 - 单元测试跑的是仓内 `devDependencies`，**看不到 profile 里的模块遮蔽**。真实安装 + 真启动的冒烟检查是唯一能抓到那一类的方式：`node scripts/smoke-profile.mjs`（需联网 + `pnpm` + PATH 上的 `dsh`，非 `pnpm test` 的一部分；它还会开一个真实会话，验证 project-mcp 在 `agent/created` 里挂载 `.mcp.json` 的那条接缝）。
 - 绝不为"让测试变绿"而削弱断言或删测试；先判断是**行为错了**还是**期望错了**，说清依据再改。
@@ -123,13 +123,13 @@ profile 的每个 bundle 各贡献一层 patch，本包的 `cordis.patch.yml` �
 推一个 `dsh-hiss-plugins@<版本>` tag 即可（CI 见 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)）：
 
 ```powershell
-git tag dsh-hiss-plugins@1.2.0        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.2.0
+git tag dsh-hiss-plugins@1.2.1        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.2.1
 ```
 
 - 工作流在 **Windows runner** 上跑（git-bash 只在 Windows 上解析得出来，测试固件也按 Windows 路径语义断言；ubuntu 上这些断言不可能通过），CI 固定 pnpm 12.3.4 / Node 24：解析 tag → `pnpm install --frozen-lockfile` → `pnpm test` → registry 上没有该版本时，在 tag 指向的目录里 `npm publish`（**npm trusted publishing / OIDC，无需任何 token/secret**；包内 `prepublishOnly` 还会再跑一次该包自己的测试）。已发布的版本会跳过发布（幂等）。
 - tag 已存在但需要重跑：`gh workflow run publish.yml --ref <tag>`（`workflow_dispatch`）。
-- tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.2.0`）。
+- tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.2.1`）。
 - **首次使用前**，在 npmjs.com 上为 `dsh-hiss-plugins` 配置一次 trusted publisher：Package → Settings → Trusted Publisher → GitHub Actions，填组织 `hilariouhiss`、仓库 `dsh-hiss-plugins`、workflow 文件名 `publish.yml`。配好之后 CI 不再需要 `NPM_TOKEN`。
 - 手工发布（不走 CI，需先 `npm login`）：`pnpm run publish:dsh-hiss-plugins`。
 
