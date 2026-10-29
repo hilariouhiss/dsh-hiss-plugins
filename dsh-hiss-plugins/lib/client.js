@@ -321,12 +321,56 @@ window.__ModuleLoader__.load({
 			});
 		}
 
-		/** Services required by the tab registration and its Remote answers. */
+		/** Host command whose run this browser half projects into the chat view. */
+		const MCP_COMMAND = "mcp";
+		/**
+		 * Chat node kind of the `/mcp` projection.
+		 *
+		 * DSH hides the whole transcript while a session has no turn (the chat view counts only
+		 * non-command nodes as activity, and only a turn clears the session's blank flag), so in a
+		 * never-messaged session the `/mcp` result — logged as `command/run` + `command/done` — would
+		 * stay invisible until the first message starts a turn. Registering this non-command node is
+		 * how DSH's own `ui-goal` keeps `/goal` visible; the report itself stays in the generic
+		 * command card, which is why the renderer below draws nothing.
+		 */
+		const MCP_NODE_KIND = "hiss-mcp-command";
+
+		/**
+		 * Project one `/mcp` run as an empty chat node.
+		 * Only `command/run` is claimed: `command/done` still renders through the generic command card,
+		 * and every other command is untouched.
+		 */
+		const mcpCommandDefinition = {
+			kind: MCP_NODE_KIND,
+			target: "chat",
+			match: (event) => event.type === "command/run" && event.data.name === MCP_COMMAND
+				? { id: String(event.data.commandId), role: "start" }
+				: null,
+			start: (_context, match) => ({ seq: match.event.seq, commandId: match.event.data.commandId }),
+			buildViewNode: (context) => ({
+				key: context.key,
+				kind: MCP_NODE_KIND,
+				id: context.id,
+				target: "chat",
+				anchorSeq: context.state.seq - 0.1,
+				location: context.start?.location ?? { kind: "unresolved" },
+				visibility: "visible",
+				data: { commandId: context.state.commandId },
+			}),
+		};
+
+		/** Zero-size renderer: the node exists to keep the chat view active, not to draw the report. */
+		function McpCommandNodeView() {
+			return null;
+		}
+
+		/** Services required by the tab registration, its Remote answers, and the `/mcp` projection. */
 		const inject = [
 			"slots",
 			"locale",
 			"remote",
-			"remote.pluginManager"
+			"remote.pluginManager",
+			"uiConversation"
 		];
 
 		/**
@@ -339,6 +383,12 @@ window.__ModuleLoader__.load({
 				en
 			}), "hiss-plugins: dictionaries");
 			const t = ctx.locale.bind(NS);
+			ctx.uiConversation.events.register(mcpCommandDefinition);
+			ctx.slots.inject("conversation.chat.node", () => ctx.slots.register({
+				name: "conversation.chat.node",
+				key: MCP_NODE_KIND,
+				locale: NS,
+			}, McpCommandNodeView));
 			/**
 			 * Read the running profile's rows.
 			 * @returns one projected row per feature this package contributes.

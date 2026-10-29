@@ -96,7 +96,7 @@ function changeOk(application = "applied", error = undefined) {
 function applyBundle(options = {}) {
 	const list = options.list ?? (() => listOk());
 	const setEnabled = options.setEnabled ?? (() => changeOk());
-	const calls = { effects: [], injected: [], registered: [], toggled: [], listed: 0, dictionaries: null };
+	const calls = { effects: [], injected: [], registered: [], definitions: [], toggled: [], listed: 0, dictionaries: null };
 	const manager = {
 		async listPlugins() {
 			calls.listed += 1;
@@ -140,6 +140,14 @@ function applyBundle(options = {}) {
 				return () => {};
 			},
 		},
+		uiConversation: {
+			events: {
+				register(definition) {
+					calls.definitions.push(definition);
+					return () => {};
+				},
+			},
+		},
 		remote: { pluginManager: manager },
 		logger: { error() {}, warn() {}, info() {} },
 	};
@@ -148,9 +156,14 @@ function applyBundle(options = {}) {
 	return { calls };
 }
 
-/** The inject face the one registration exposes. */
+/** The Plugins-page tab registration; the bundle also contributes a chat node renderer. */
+function tabOf(calls) {
+	return calls.registered.find((entry) => entry.registration.name === "plugins.tab");
+}
+
+/** The inject face the tab registration exposes. */
 function faceOf(calls) {
-	const { registration } = calls.registered[0];
+	const { registration } = tabOf(calls);
 	return registration.inject();
 }
 
@@ -169,7 +182,7 @@ function textOf(tree) {
 
 /** Mount the tab with the props a slot renderer passes: the inject face plus the owner props. */
 function mount(calls) {
-	const { registration, component } = calls.registered[0];
+	const { registration, component } = tabOf(calls);
 	const props = { ...registration.inject(), install() {}, openPackage() {} };
 	const slots = new Map();
 	let tree;
@@ -226,16 +239,17 @@ test("the bundle registers a lazy factory under the package id", () => {
 test("the bundle exports apply and the client services it uses", () => {
 	const exported = loadBundle();
 	assert.equal(typeof exported.apply, "function");
-	assert.deepEqual(exported.inject, ["slots", "locale", "remote", "remote.pluginManager"]);
+	assert.deepEqual(exported.inject, ["slots", "locale", "remote", "remote.pluginManager", "uiConversation"]);
 });
 
-test("apply registers the dictionaries and one plugins.tab entry", () => {
+test("apply registers the dictionaries, the /mcp chat projection and one plugins.tab entry", () => {
 	const { calls } = applyBundle();
 	assert.deepEqual(calls.effects, ["hiss-plugins: dictionaries"]);
 	assert.equal(calls.dictionaries.namespace, NS);
-	assert.deepEqual(calls.injected, ["plugins.tab"]);
-	assert.equal(calls.registered.length, 1);
-	const { registration, component } = calls.registered[0];
+	assert.deepEqual(calls.injected, ["conversation.chat.node", "plugins.tab"]);
+	assert.equal(calls.registered.length, 2);
+	assert.equal(calls.definitions.length, 1);
+	const { registration, component } = tabOf(calls);
 	assert.equal(registration.name, "plugins.tab");
 	assert.equal(registration.id, "dsh-hiss-plugins");
 	assert.equal(registration.order, 20);
@@ -244,6 +258,35 @@ test("apply registers the dictionaries and one plugins.tab entry", () => {
 	assert.equal(registration.label(), "dsh-hiss-plugins");
 	assert.equal(typeof registration.inject, "function");
 	assert.equal(typeof component, "function");
+});
+
+test("the /mcp run projects a chat node, so a never-messaged session renders the transcript", () => {
+	const { calls } = applyBundle();
+	const [definition] = calls.definitions;
+	assert.equal(definition.kind, "hiss-mcp-command");
+	assert.equal(definition.target, "chat");
+	const run = { type: "command/run", seq: 5, time: 1, data: { commandId: "cmd-1", name: "mcp", args: "" } };
+	assert.deepEqual(definition.match(run), { id: "cmd-1", role: "start" });
+	assert.equal(definition.match({ type: "command/run", seq: 6, time: 1, data: { commandId: "cmd-2", name: "goal" } }), null);
+	assert.equal(definition.match({ type: "command/done", seq: 7, time: 1, data: { commandId: "cmd-1", kind: "success", text: "done" } }), null);
+	const match = { ...definition.match(run), event: run };
+	const context = { key: "hiss-mcp-command:cmd-1", id: "cmd-1", start: match, matches: [match], state: definition.start({}, match) };
+	const node = definition.buildViewNode(context);
+	assert.equal(node.key, context.key);
+	assert.equal(node.kind, "hiss-mcp-command");
+	assert.notEqual(node.kind, "command", "command nodes alone leave the chat view inactive, which is the bug");
+	assert.equal(node.target, "chat");
+	assert.equal(node.visibility, "visible");
+	assert.ok(node.anchorSeq < run.seq);
+	assert.equal(node.data.commandId, "cmd-1");
+});
+
+test("the projection renders nothing: the generic command card keeps the report", () => {
+	const { calls } = applyBundle();
+	const entry = calls.registered.find((item) => item.registration.name === "conversation.chat.node");
+	assert.equal(entry.registration.key, "hiss-mcp-command");
+	assert.equal(entry.registration.locale, NS);
+	assert.equal(entry.component(), null);
 });
 
 test("the inject face exposes the seven feature keys in the tab's order", () => {

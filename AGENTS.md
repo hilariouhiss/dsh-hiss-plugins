@@ -16,7 +16,7 @@
 
 | 路径 | 提供 |
 |---|---|
-| `dsh-hiss-plugins/` | 唯一的包（v1.2.1）：七个功能 + Plugins 页里的管理标签 |
+| `dsh-hiss-plugins/` | 唯一的包（v1.2.2）：七个功能 + Plugins 页里的管理标签 |
 | `dsh-hiss-plugins/lib/index.js` | 载体行：空的 host 半，只为让浏览器半被送出 |
 | `dsh-hiss-plugins/lib/colgrep/` | `colgrep` 模型工具（语义检索，`root` 可指定项目） |
 | `dsh-hiss-plugins/lib/codegraph/` | 经 MCP 注册 `mcp__codegraph__*` 工具 + 无索引时的建图引导 |
@@ -25,7 +25,7 @@
 | `dsh-hiss-plugins/lib/superpowers/` | superpowers 常驻引导：只注册全局提示词段 `superpowers:adoption`（技能仍由 DSH 原生发现，不安装、不内置技能） |
 | `dsh-hiss-plugins/lib/ponytail/` | ponytail 采纳提示段 + 宿主 `/ponytail` 等级命令；`lib/ponytail/mode.js` 管等级语法、默认值解析与按 agent 的等级表 |
 | `dsh-hiss-plugins/lib/init/` | 宿主 `/init` 命令：`lib/init/prompt.js` 是指令正文（纯逻辑），`lib/init/index.js` 把指令经 `agent.followup` 交给模型，读项目并写 `AGENTS.md` |
-| `dsh-hiss-plugins/lib/client.js` | 浏览器半（手写 lazy-CJS）：向 Plugins 页的 `plugins.tab` 注册管理标签 |
+| `dsh-hiss-plugins/lib/client.js` | 浏览器半（手写 lazy-CJS）：Plugins 页管理标签 + `/mcp` 的 chat 节点投影 |
 | `dsh-hiss-plugins/locale/` | 管理标签的中 / 英文字典；`meta` 是 Plugins 页显示的包信息 |
 | `dsh-hiss-plugins/test/` | node:test 单测：七个 `<feature>/` 目录 + `manifest.test.js` + `patch.test.js` + `client.test.js` |
 
@@ -65,9 +65,10 @@ profile 的每个 bundle 各贡献一层 patch，本包的 `cordis.patch.yml` �
 - `package.json` 必须同时声明：`dsh.bundle.patch: "./cordis.patch.yml"`、`dsh.client: { platform: "web", inject: ["@deepseek-ai/dsh-api-remotes", "@deepseek-ai/dsh-client-modules"] }`、`exports["./client"]: "./lib/client.js"`。客户端模块系统按 **Loader 行**扫描：只有某条行已挂载的包才会被读 `dsh.client`，也只有 `platform: "web"` 且 `exports["./client"]` 指向真实文件的包才会被送进浏览器 —— 这就是载体行存在的唯一理由。
 - `dsh.client.inject` 是**包名**列表（其它浏览器半的图依赖），不是 npm 依赖，不要写进 `dependencies`。
 - `lib/client.js` 是**手写 lazy-CJS bundle，无构建步骤**：执行脚本只注册工厂（`window.__ModuleLoader__.load({ id: "dsh-hiss-plugins", factory: (require) => { ...; exports.apply = apply; exports.inject = inject; return module.exports; } })`），模块体（含一切注册副作用）在首次被 require/import 时执行；`id` 必须逐字等于包名（客户端图里的行 id 就是包名）。
-- `exports.inject` 写的是**浏览器侧服务名**（`slots`、`locale`、`remote`、`remote.<命名空间>`），少列一个 → 该浏览器插件静默不激活。它与 `dsh.client.inject`（包名）不是一回事。
+- `exports.inject` 写的是**浏览器侧服务名**（`slots`、`locale`、`remote`、`remote.<命名空间>`、`uiConversation`），少列一个 → 该浏览器插件静默不激活。它与 `dsh.client.inject`（包名）不是一回事。
 - 远程调用走 `ctx.remote.<命名空间>.<方法>`，命名空间就是 host 侧服务名。管理标签用 `await ctx.remote.pluginManager.listPlugins()` 取行、`await ctx.remote.pluginManager.setPluginEnabled(entryId, enabled)` 写开关。
 - 标签注册进 Plugins 页（`dsh-client-ui-plugin-manager`）声明的 `plugins.tab` list slot：`ctx.slots.inject("plugins.tab", () => ctx.slots.register({ name: "plugins.tab", id, order, label, locale }, 渲染函数))`，条目按 `order` 排在该页自己的「已安装」标签之后。
+- 浏览器半还注册一个 **Conversation 投影**：`ctx.uiConversation.events.register(...)` 把宿主 `/mcp` 的 `command/run` 投影成 chat 节点 `hiss-mcp-command`，并在 `conversation.chat.node` 注册它的零尺寸渲染器。原因是 DSH 在会话**还没有 turn** 时把整段对话当 blank 隐藏（chat 视图的 `isActive` 只认非 `command` 节点，只有 `turn/start` 清 `sessionListMetadata.blank`），只写 command 事件的命令在新会话里会“看不见”——`/goal` 用同一招。报告本身仍由通用 command 卡片渲染。
 - 开关的落地：host 把 `{ id, disabled }` 覆盖写进 **profile 自己的** `cordis.patch.yml`（保留注释、原子写，`mode 0600`）。带 HMR 的 profile 立即重算并返回 `applied`；没有 HMR 时接口返回 `application: "restart-required"`（`restartReason: "no-hmr"`），重启 dsh 生效。`readOnlyReason`（`unaddressable` / `management-required`）表示该行没有开关。
 
 ### 2.3 ctx 服务速查
@@ -112,6 +113,7 @@ profile 的每个 bundle 各贡献一层 patch，本包的 `cordis.patch.yml` �
 |---|---|
 | 重启后插件"没生效" | `cordis.patch.yml` 的 `name` 与 `exports` 子路径不一致，或 `inject` 少列服务 |
 | **Plugins 页里某个功能没有开关 / 开关点了没用** | ① 该行不是**顶层行**（被 `cordis:group` 包着，或父 entry 不是 profile 的 `include`）→ `listPlugins()` 判 `unaddressable`；`test/patch.test.js` 守这条形状。② 行的 `name` 与挂载模块名不一致，同样 `unaddressable`。③ 命中的是插件管理器自己的行或受保护模块 → `management-required`（本来就不能关）。`listPlugins()` 返回的 `readOnlyReason` 会说明是哪种。④ 开关写进去了但界面没变：profile 没有 HMR，结果是 `restart-required`，重启 dsh 才生效。⑤ 浏览器半没被送出：包没有任何 Loader 行（载体行被删），或 `dsh.client.platform` 不是 `"web"`、`exports["./client"]` 指错文件 |
+| **`/mcp` 输出要等下一条消息才出现**（新会话里 `command/run`/`command/done` 已写进日志，界面却没变） | 会话还没有 `turn/start` 时 DSH 把整段对话当 blank 隐藏（`sessionListMetadata.blank` 只由 turn 清，chat 视图 `isActive` 忽略 command 节点）。浏览器半的 `hiss-mcp-command` 伴随节点就是对策（§2.2）；浏览器半没被送出、或 `uiConversation` 服务没等到，会退回“看不见”的旧行为 |
 | 升级 DSH 后插件崩 | `@deepseek-ai/*` 是预发布版，公开 API 可能变；同步 peer 范围与 `devDependencies`，再跑 `node scripts/smoke-profile.mjs` |
 | 工具调用报 `ctx.shell.run is not a function`，或 `bash` 跑成了 WSL | 宿主把执行器接缝改名了（0.1.7：`run`/`start`/`runArgv`/`startArgv` → `execute`/`executeArgv`，`ctx.sandbox.confine` 变异步三参）。覆写不存在的名字**加载期无任何报错**，只在调用时暴露；按 §4 的"打到真实基类"补一条守卫测试，别只改调用点 |
 | `dsh` 直接起不来、报 `does not provide an export named ...` | profile 里 hoist 了 `@deepseek-ai/*` 旧副本（§3.4）。`ls ~/.dsh/profiles/<p>/node_modules/@deepseek-ai` 有内容即为命中；修 `package.json` 后让用户 `dsh plugin --profile <p> update` |
@@ -123,13 +125,13 @@ profile 的每个 bundle 各贡献一层 patch，本包的 `cordis.patch.yml` �
 推一个 `dsh-hiss-plugins@<版本>` tag 即可（CI 见 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)）：
 
 ```powershell
-git tag dsh-hiss-plugins@1.2.1        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.2.1
+git tag dsh-hiss-plugins@1.2.2        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.2.2
 ```
 
 - 工作流在 **Windows runner** 上跑（git-bash 只在 Windows 上解析得出来，测试固件也按 Windows 路径语义断言；ubuntu 上这些断言不可能通过），CI 固定 pnpm 12.3.4 / Node 24：解析 tag → `pnpm install --frozen-lockfile` → `pnpm test` → registry 上没有该版本时，在 tag 指向的目录里 `npm publish`（**npm trusted publishing / OIDC，无需任何 token/secret**；包内 `prepublishOnly` 还会再跑一次该包自己的测试）。已发布的版本会跳过发布（幂等）。
 - tag 已存在但需要重跑：`gh workflow run publish.yml --ref <tag>`（`workflow_dispatch`）。
-- tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.2.1`）。
+- tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.2.2`）。
 - **首次使用前**，在 npmjs.com 上为 `dsh-hiss-plugins` 配置一次 trusted publisher：Package → Settings → Trusted Publisher → GitHub Actions，填组织 `hilariouhiss`、仓库 `dsh-hiss-plugins`、workflow 文件名 `publish.yml`。配好之后 CI 不再需要 `NPM_TOKEN`。
 - 手工发布（不走 CI，需先 `npm login`）：`pnpm run publish:dsh-hiss-plugins`。
 

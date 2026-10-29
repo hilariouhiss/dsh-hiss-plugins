@@ -55,7 +55,8 @@ Plugins 页（侧边栏 **插件**）里多出一个 `dsh-hiss-plugins` 标签�
 - 浏览器半是 **`lib/client.js`** —— 手写的 lazy-CJS bundle，没有构建步骤：`window.__ModuleLoader__.load({ id: "dsh-hiss-plugins", factory })` 只注册工厂，模块体（slot 注册、locale 字典）在首次被 require 时执行。`id` 必须逐字等于包名（客户端图里的行 id 就是包名）。
 - `package.json` 里 `dsh.client.platform = "web"`、`exports["./client"]` 指向 `lib/client.js`；客户端模块系统按 Loader 行扫描，**只有本包有行挂载，这个文件才会被送进浏览器**。
 - 标签注册进 Plugins 页声明的 `plugins.tab` list slot（`ctx.slots.inject("plugins.tab", …)`），排在页面自己的「已安装」标签之后；文案来自包内的 `locale/*.json`。
-- `exports.inject` 是浏览器侧**服务名**（`slots`、`locale`、`remote`、`remote.pluginManager`）；远程调用形如 `ctx.remote.<命名空间>.<方法>`，命名空间就是 host 侧服务名。
+- `exports.inject` 是浏览器侧**服务名**（`slots`、`locale`、`remote`、`remote.pluginManager`、`uiConversation`）；远程调用形如 `ctx.remote.<命名空间>.<方法>`，命名空间就是 host 侧服务名。
+- 浏览器半还注册 **`/mcp` 的 chat 节点投影**（`ctx.uiConversation.events.register` + `conversation.chat.node` 的零尺寸渲染器）。原因：DSH 在会话还没有 `turn/start` 时把整段对话当 blank 隐藏（chat 视图的 `isActive` 只认非 `command` 节点），只写 command 事件的 `/mcp` 在新会话里会“看不见”；报告的文本仍由 DSH 的通用 command 卡片渲染。
 - `dsh.client.inject` 列的是**其它浏览器半的包名**（`@deepseek-ai/dsh-api-remotes`、`@deepseek-ai/dsh-client-modules`）—— 浏览器侧的图依赖，不是 npm 依赖。
 
 ## git-bash 行为什么自带 realm 隔离
@@ -157,6 +158,7 @@ colgrep command:"init" / command:"status" / command:"clear"
 - **${VAR} 展开**：`${TOKEN}` / `${TOKEN:-默认值}` 在挂载时用宿主进程环境求值，`.mcp.json` 里不必写明文密钥。
 - **失败不致命**：坏 JSON、不支持的 transport、起不来的 server 都只影响它自己，打一条 warn，会话照常开。
 - **`/mcp` 看状态**：在本项目的会话里执行 `/mcp`，逐条列出 `.mcp.json` 声明的 server 与其实时状态 —— `connected, N tools`（MCP 桥连上并同步工具后才注册工具）、`no tools`（没连上，或 server 本身不暴露工具）、`skipped`（条目映射不了）、`unusable`（宿主 MCP 桥的 schema 拒绝）；另外报告本会话里来自项目外配置的 MCP 工具总数。状态读的是当前 agent 自己的工具表，所以列的是**此刻真正可用**的工具；命令不接受参数。
+- **新会话里立即显示**：DSH 的 Web 客户端在会话还没有任何 turn 时把整段对话当 blank 隐藏（只有 `turn/start` 会清 `sessionListMetadata.blank`），而 `/mcp` 只写 `command/run`/`command/done`。浏览器半因此给 `/mcp` 注册了一个非 `command` 的**伴随节点**（`hiss-mcp-command`，零尺寸），chat 视图立即激活——不必再先发一条消息。
 
 `.mcp.json` 就是 Claude Code 的项目级 MCP 配置文件：
 
@@ -355,8 +357,8 @@ test/                 node:test：<feature>/ 七个目录 + manifest / patch / c
 ## 发布（给维护者）
 
 ```powershell
-git tag dsh-hiss-plugins@1.2.1        # 必须与本目录 package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.2.1
+git tag dsh-hiss-plugins@1.2.2        # 必须与本目录 package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.2.2
 ```
 
 CI（`.github/workflows/publish.yml`，Windows runner）解析 tag、跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token）** 发布；包内 `prepublishOnly` 会再跑一次 `npm test`。手工发布：`npm publish`（`publishConfig.access` 已设为 public），发版前先 `node ../scripts/smoke-profile.mjs` 走一遍真实安装 + 真启动。发布新版本前记得递增 `package.json` 的 `version`。
