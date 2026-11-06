@@ -35,6 +35,7 @@ window.__ModuleLoader__.load({
 			{ key: "superpowers", moduleName: `${PACKAGE_ID}/superpowers`, description: "featureSuperpowersDescription" },
 			{ key: "ponytail", moduleName: `${PACKAGE_ID}/ponytail`, description: "featurePonytailDescription" },
 			{ key: "init", moduleName: `${PACKAGE_ID}/init`, description: "featureInitDescription" },
+			{ key: "fix", moduleName: `${PACKAGE_ID}/fix`, description: "featureFixDescription" },
 		];
 		/** The same features keyed by the name a card shows. */
 		const FEATURE_BY_KEY = new Map(FEATURES.map((feature) => [feature.key, feature]));
@@ -77,6 +78,7 @@ window.__ModuleLoader__.load({
 			featureSuperpowersDescription: "superpowers 技能常驻引导（任何回复前先检查并加载技能）",
 			featurePonytailDescription: "ponytail 采纳提示与 /ponytail 等级切换",
 			featureInitDescription: "生成或更新项目 AGENTS.md（/init）",
+			featureFixDescription: "先查根因并报告，确认后再修复（/fix）",
 		};
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
@@ -99,6 +101,7 @@ window.__ModuleLoader__.load({
 			featureSuperpowersDescription: "always-on superpowers skill mandate",
 			featurePonytailDescription: "ponytail adoption hint and /ponytail level switching",
 			featureInitDescription: "generates or updates the project's AGENTS.md (/init)",
+			featureFixDescription: "diagnoses the root cause and waits for confirmation before fixing (/fix)",
 		};
 
 		/** Read one thrown value as text. */

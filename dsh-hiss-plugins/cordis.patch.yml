@@ -1,10 +1,10 @@
-# dsh-hiss-plugins bundle patch: one package, eight top-level rows.
+# dsh-hiss-plugins bundle patch: one package, nine top-level rows.
 #
 # The carrier row (`dsh-hiss-plugins`) is an empty host half: it exists so the package
 # holds a Loader row, which is what the client module system serves the browser half
 # (`lib/client.js`, the Plugins-page management tab) for.
 #
-# The seven feature rows are deliberate TOP-LEVEL rows, never a `cordis:group` with
+# The eight feature rows are deliberate TOP-LEVEL rows, never a `cordis:group` with
 # children: the plugin manager can only persist enablement for an entry whose parent
 # tree is the profile's include and that it can address by row id (see
 # `dsh-plugin-manager`'s `listPlugins()`), so a nested row can never be switched from
@@ -40,3 +40,6 @@
 
     - id: dsh-hiss-plugins-init
       name: 'dsh-hiss-plugins/init'
+
+    - id: dsh-hiss-plugins-fix
+      name: 'dsh-hiss-plugins/fix'

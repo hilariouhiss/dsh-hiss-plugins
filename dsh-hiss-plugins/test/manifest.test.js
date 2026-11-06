@@ -23,8 +23,8 @@ const HOST_PROVIDED = [
 /** The runtime generation this bundle is built and tested against. */
 const RUNTIME_GENERATION = "0.2.1-alpha.4";
 
-/** The seven features, each exported as a subpath and mounted by the bundle patch. */
-const FEATURES = ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init"];
+/** The eight features, each exported as a subpath and mounted by the bundle patch. */
+const FEATURES = ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init", "fix"];
 
 test("harness packages are host-provided peers, never bundled dependencies", () => {
 	const dependencies = Object.keys(manifest.dependencies ?? {});
