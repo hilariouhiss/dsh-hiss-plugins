@@ -1,7 +1,7 @@
 /**
  * The init row's contract: one argument-free `/init` command that injects the
- * prompt through `agent.followup`, resolves the session directory best-effort,
- * and fails loudly when the followup seam is missing.
+ * prompt through `agent.followup` as non-user context, resolves the session
+ * directory best-effort, and fails loudly when the followup seam is missing.
  *
  * @module dsh-hiss-plugins/test/init
  */
@@ -79,7 +79,7 @@ test("apply registers exactly one argument-free command", () => {
 	assert.deepEqual(Object.keys(definition).sort(), ["description", "handler", "name"], "no input hint or attachment flag is declared");
 });
 
-test("a bare invocation sends the prompt and succeeds", async () => {
+test("a bare invocation sends the prompt as collapsed context and succeeds", async () => {
 	const { run, sent, agent, calls, definition } = setup();
 	const { result, invocation } = await run("");
 	assert.deepEqual(result, { kind: "success", text: "Reading this project and writing AGENTS.md." });
@@ -87,10 +87,11 @@ test("a bare invocation sends the prompt and succeeds", async () => {
 	assert.equal(calls.ensured.length, 1, "the workspace is resolved exactly once");
 	assert.equal(calls.ensured[0].agent, agent);
 	assert.equal(calls.ensured[0].signal, invocation.signal, "the invocation signal reaches the lookup");
-	assert.equal(sent.length, 1, "one durable user message carries the instruction");
+	assert.equal(sent.length, 1, "one durable context message carries the instruction");
 	const [message] = sent;
 	assert.equal(message.role, "user");
-	assert.deepEqual(message.source, { kind: "user" });
+	assert.deepEqual(message.source, { kind: "init", form: "notice", summary: "Generate or update AGENTS.md" });
+	assert.notEqual(message.source.kind, "user", "the instruction must not render as the user's own bubble");
 	assert.equal(typeof message.id, "string", "the message is constructed by the host helper");
 	assert.equal(message.content.length, 1);
 	assert.equal(message.content[0].type, "text");

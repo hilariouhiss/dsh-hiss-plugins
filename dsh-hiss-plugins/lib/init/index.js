@@ -44,7 +44,9 @@ async function runInit(ctx, invocation) {
 	const cwd = await resolveCwd(ctx, invocation);
 	invocation.agent.followup(createUserMessage({
 		content: [{ type: "text", text: buildInitPrompt(cwd) }],
-		source: { kind: "user" },
+		// A non-user source keeps the long instruction out of the user's chat
+		// bubble; Chat renders it as a collapsed context/turn-trigger row instead.
+		source: { kind: "init", form: "notice", summary: "Generate or update AGENTS.md" },
 	}));
 	return { kind: "success", text: "Reading this project and writing AGENTS.md." };
 }
