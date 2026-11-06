@@ -77,6 +77,17 @@ test("buildArgs builds init/status/clear", () => {
 	assert.deepEqual(buildArgs({ command: "clear" }), ["colgrep", "clear"]);
 });
 
+test("buildArgs maps agent mode to --agent --json", () => {
+	assert.deepEqual(
+		buildArgs({ query: "auth", agent: true }),
+		["colgrep", "--agent", "--json", "--color", "never", "-y", "-k", "15", "auth"],
+	);
+	assert.deepEqual(
+		buildArgs({ query: "auth", agent: true, top_k: 5, pattern: "fn", include: "*.rs", code_only: true, no_update: true }),
+		["colgrep", "--agent", "--json", "--color", "never", "-y", "--no-update", "-k", "5", "-e", "fn", "--include", "*.rs", "--code-only", "auth"],
+	);
+});
+
 test("buildArgs passes root as the CLI search path", () => {
 	assert.deepEqual(
 		buildArgs({ query: "auth", root: "C:/other" }),
@@ -144,6 +155,52 @@ test("renderOutput formats a text command", () => {
 	assert.ok(text.includes("Project: ok"));
 });
 
+test("renderOutput formats agent locations", () => {
+	const text = renderOutput({
+		command: "search",
+		agent: true,
+		query: "auth",
+		ok: true,
+		submitted: true,
+		count: 2,
+		locations: [
+			{ file: "C:\\ws\\a.rs", line: 10, end_line: 25 },
+			{ file: "C:\\ws\\b.rs", line: 1, end_line: 9 },
+		],
+	});
+	assert.ok(text.includes('colgrep (agent): 2 location(s) for "auth"'));
+	assert.ok(text.includes("C:\\ws\\a.rs:10-25"));
+	assert.ok(text.includes("C:\\ws\\b.rs:1-9"));
+});
+
+test("renderOutput marks inspected locations when the agent did not submit", () => {
+	const text = renderOutput({
+		command: "search",
+		agent: true,
+		query: "auth",
+		ok: true,
+		submitted: false,
+		locations: [{ file: "C:\\ws\\a.rs", line: 1, end_line: 2 }],
+	});
+	assert.ok(text.includes("inspected location(s)"));
+	assert.ok(text.includes("did not submit a final answer"));
+});
+
+test("renderOutput reports agent failures", () => {
+	const text = renderOutput({
+		command: "search",
+		agent: true,
+		query: "auth",
+		ok: false,
+		locations: null,
+		error: "model error",
+		stderr: "progress",
+	});
+	assert.ok(text.includes("colgrep agent search failed"));
+	assert.ok(text.includes("model error"));
+	assert.ok(text.includes("progress"));
+});
+
 test("apply registers colgrep and execute shells out with a workspace-local index", async () => {
 	const unitFile = "\\\\?\\C:\\workspace\\src\\main.rs";
 	const captures = {
@@ -185,6 +242,99 @@ test("execute runs the command through the shell's execute/result seam", async (
 	assert.equal(value.ok, true);
 });
 
+test("execute parses agent-mode locations from JSON", async () => {
+	const captures = {
+		sections: [],
+		runResult: {
+			exitCode: 0,
+			timedOut: false,
+			aborted: false,
+			stdout: {
+				text: JSON.stringify({
+					query: "auth",
+					locations: [
+						{ file: "\\\\?\\C:\\workspace\\src\\auth.rs", start_line: 10, end_line: 25 },
+						{ file: "C:\\workspace\\src\\login.rs", start_line: 1, end_line: 9 },
+					],
+					submitted: true,
+					end_reason: "Answered",
+					error: null,
+					turns: 3,
+				}),
+			},
+			stderr: { text: "" },
+		},
+	};
+	apply(makeContext(captures));
+
+	const value = await captures.definition.execute({ query: "auth", agent: true }, mockExec());
+
+	assert.equal(value.agent, true);
+	assert.equal(value.ok, true);
+	assert.equal(value.submitted, true);
+	assert.equal(value.count, 2);
+	assert.deepEqual(value.locations, [
+		{ file: "C:\\workspace\\src\\auth.rs", line: 10, end_line: 25 },
+		{ file: "C:\\workspace\\src\\login.rs", line: 1, end_line: 9 },
+	]);
+	assert.ok(captures.request.command.includes("--agent"), "runs the agent CLI mode");
+	assert.ok(captures.request.command.includes("--json"), "parses the agent's JSON output");
+	assert.equal(captures.request.timeoutMs, 600000, "agent runs get the longer timeout");
+});
+
+test("execute reports an agent error from JSON", async () => {
+	const captures = {
+		sections: [],
+		runResult: {
+			exitCode: 0,
+			timedOut: false,
+			aborted: false,
+			stdout: {
+				text: JSON.stringify({
+					query: "auth",
+					locations: [],
+					submitted: false,
+					end_reason: "LlmError",
+					error: "model error",
+					turns: 1,
+				}),
+			},
+			stderr: { text: "" },
+		},
+	};
+	apply(makeContext(captures));
+
+	const value = await captures.definition.execute({ query: "auth", agent: true }, mockExec());
+
+	assert.equal(value.ok, false);
+	assert.equal(value.agent, true);
+	assert.equal(value.submitted, false);
+	assert.equal(value.count, 0);
+	assert.equal(value.error, "model error");
+	assert.deepEqual(value.locations, []);
+});
+
+test("execute keeps unparseable agent output for the renderer", async () => {
+	const captures = {
+		sections: [],
+		runResult: {
+			exitCode: 0,
+			timedOut: false,
+			aborted: false,
+			stdout: { text: "not json" },
+			stderr: { text: "progress" },
+		},
+	};
+	apply(makeContext(captures));
+
+	const value = await captures.definition.execute({ query: "auth", agent: true }, mockExec());
+
+	assert.equal(value.agent, true);
+	assert.equal(value.locations, null);
+	assert.equal(value.stdout, "not json");
+	assert.equal(value.stderr, "progress");
+});
+
 test("execute roots the run at the requested project but keeps the index in the workspace", async () => {
 	const captures = { sections: [], runResult: { exitCode: 0, timedOut: false, aborted: false, stdout: { text: "[]" }, stderr: { text: "" } } };
 	apply(makeContext(captures));
@@ -205,6 +355,15 @@ test("execute resolves a relative root against the workspace", async () => {
 	assert.equal(captures.request.workdir, resolve("C:/workspace", "../other"));
 });
 
+test("the tool schema exposes agent mode", () => {
+	const captures = { sections: [] };
+	apply(makeContext(captures));
+
+	const parameters = captures.definition.parameters;
+	assert.equal(parameters.properties.agent.type, "boolean");
+	assert.match(parameters.properties.agent.description, /--agent/u);
+});
+
 test("apply registers usage guidance carrying the current workspace", () => {
 	const captures = { sections: [] };
 	apply(makeContext(captures));
@@ -218,6 +377,7 @@ test("apply registers usage guidance carrying the current workspace", () => {
 	assert.ok(text.includes("meaning"), "tells the agent to search by meaning");
 	assert.ok(text.includes("auto-indexes"), "says the index builds on demand");
 	assert.ok(text.includes("root"), "documents the explicit root parameter");
+	assert.ok(text.includes("agent:true"), "documents the agent mode");
 	assert.ok(text.includes("C:/project"), "injects the current workspace path");
 	assert.ok(guidanceFor("C:/project").includes("C:/project"), "guidanceFor carries the workspace");
 });

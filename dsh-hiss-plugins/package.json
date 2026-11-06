@@ -1,6 +1,6 @@
 {
 	"name": "dsh-hiss-plugins",
-	"version": "1.3.0",
+	"version": "1.3.1",
 	"description": "dsh-hiss-plugins — one DeepSeek Harness bundle carrying eight independently switchable plugins (colgrep, codegraph, project-mcp, git-bash, superpowers, ponytail, init, fix) plus a management tab in the Plugins page.",
 	"keywords": [
 		"dsh",

@@ -102,10 +102,12 @@ colgrep command:"init" / command:"status" / command:"clear"
 | `include` | string | 只检索匹配 glob 的文件（`--include`，如 `"*.rs"`） |
 | `code_only` | boolean | 只检索代码文件，跳过 md/txt/yaml/json 等 |
 | `no_update` | boolean | 跳过自动重建索引，直接检索现有索引 |
+| `agent` | boolean | 使用 colgrep 本地 sub-agent 搜索（`--agent --json`），返回 `file:start-end` 位置；需要 colgrep ≥1.8.5 与 agent 模型 |
 
 行为要点：
 
 - 结果以 `--json` 解析后折叠为紧凑可读文本（`文件:行-行 [语言, 类型, 名称] (score)` + 首行签名），不倾倒整段代码；模型可再 `read` 具体文件。解析兼容顶层数组与 `{results:[...]}` 两种 JSON 形状；`query` 为空或纯空白时返回明确错误。
+- **agent 模式**：`agent:true` 时改用 `--agent --json`，解析 `locations`（`file/start_line/end_line`）折叠为位置列表；`submitted:false` 表示模型没有提交最终答案，列出的是它 inspect 过的位置。首次使用前在普通终端跑 `colgrep --install-agent` 下载约 2.5GB 模型；CPU 上约 75–90 秒/问题，工具超时放宽到 10 分钟。模型/缓存位于用户目录，workspace-write/read-only 沙箱可能拒绝写入，先在工作区外安装模型或在 full-access 下使用。
 - **索引留在工作区内**：DSH 文件沙箱禁止写工作区之外，而 colgrep 检索需要写索引锁文件。插件把索引目录重定位到 `<工作区>/.colgrep-data`（通过 `COLGREP_DATA_DIR`），使全部写入落在沙箱允许范围内。ColBERT 模型与 ONNX runtime 从 `~/.cache` 只读加载，无需联网。
 - **显式根目录**：`root` 只改变检索**运行的位置**（`workdir`），不改变索引位置 —— 索引数据始终留在当前工作区的 `.colgrep-data`，因为 colgrep 的索引是**按项目注册的**（`<data_dir>/indices/<项目名>-<hash>`），一个数据目录可以同时容纳多个项目的索引，跨项目检索不会把数据写到别人的仓库里。**真正限制结果范围的是 `root`**（换项目）；`path` 相对 `root` 解析（无 `root` 时相对工作区），只做聚焦、不保证排他。
 - 首次检索会自动建立索引（CPU 上大仓库可能需数分钟）；可用 `command:"init"` 显式建索引，`no_update:true` 走现有索引。
@@ -114,6 +116,7 @@ colgrep command:"init" / command:"status" / command:"clear"
 前置要求：
 
 - 已安装 [colgrep](https://github.com/lightonai/next-plaid/tree/main/colgrep) CLI（`cargo install colgrep` 或官方预编译二进制），且 `colgrep` 在宿主进程的 PATH 上。
+- agent 模式需要 **colgrep ≥1.8.5**；先在普通终端跑 `colgrep --install-agent` 下载 agent 模型（约 2.5GB，或在首次 `agent:true` 调用时下载）。
 - 首次使用前，colgrep 需已下载默认模型 `lightonai/LateOn-Code-edge`（`colgrep "任意查询"` 会自动下载；私有模型需 `HF_TOKEN`，可用 `colgrep set-model` 切换）。
 
 验证：重启后让模型调用 `colgrep`（例如“用 colgrep 搜索 error handling 相关代码”），或执行 `colgrep command:"status"` 看当前工作区的索引状态。
@@ -375,8 +378,8 @@ test/                 node:test：<feature>/ 八个目录 + manifest / patch / c
 ## 发布（给维护者）
 
 ```powershell
-git tag dsh-hiss-plugins@1.3.0        # 必须与本目录 package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.3.0
+git tag dsh-hiss-plugins@1.3.1        # 必须与本目录 package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.3.1
 ```
 
 CI（`.github/workflows/publish.yml`，Windows runner）解析 tag、跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token）** 发布；包内 `prepublishOnly` 会再跑一次 `npm test`。手工发布：`npm publish`（`publishConfig.access` 已设为 public），发版前先 `node ../scripts/smoke-profile.mjs` 走一遍真实安装 + 真启动。发布新版本前记得递增 `package.json` 的 `version`。

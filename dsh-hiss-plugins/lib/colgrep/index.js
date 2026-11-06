@@ -6,12 +6,13 @@ export const inject = ["tools", "shell", "sandboxPolicy", "systemPrompt"];
 
 const LONG_PATH_PREFIX = String.fromCharCode(92, 92, 63, 92); // "\\?\"
 
-const TOOL_DESCRIPTION = `Semantic code search over the workspace using the local colgrep CLI (ColBERT multi-vector search). Finds code by meaning, not exact text. Use a natural-language \`query\` such as "error handling for database connections". Defaults to \`search\`; search auto-indexes, so the first run in a project builds the index and is slower. Use \`command:"status"\` to inspect the index, \`command:"init"\` to (re)build it explicitly, and \`no_update:true\` for a fast search over an existing index. Pass \`root\` to search a project other than the workspace, and \`path\` to narrow the search within it. Use \`pattern\` to pre-filter by regex, \`include\` to limit file types (e.g. "*.rs"), and \`code_only\` to skip text/config files.`;
+const TOOL_DESCRIPTION = `Semantic code search over the workspace using the local colgrep CLI (ColBERT multi-vector search). Finds code by meaning, not exact text. Use a natural-language \`query\` such as "error handling for database connections". Defaults to \`search\`; search auto-indexes, so the first run in a project builds the index and is slower. Use \`command:"status"\` to inspect the index, \`command:"init"\` to (re)build it explicitly, and \`no_update:true\` for a fast search over an existing index. Pass \`root\` to search a project other than the workspace, and \`path\` to narrow the search within it. Use \`pattern\` to pre-filter by regex, \`include\` to limit file types (e.g. "*.rs"), and \`code_only\` to skip text/config files. Use \`agent:true\` for open-ended "where is X handled?" questions: colgrep's local sub-agent explores the repository and returns code locations (slower; requires the agent model).`;
 
 const GUIDANCE = [
 	"Semantic code search is available through the `colgrep` tool. ",
 	"Reach for it when you want code by meaning and cannot name the exact identifier — grep is for text you can already spell out. ",
 	"It auto-indexes on demand, so the first search in a project is slower; use `pattern` for a regex pre-filter that ranks semantically after. ",
+	"For open-ended \"where is X handled?\" questions, pass `agent:true` to run colgrep's local sub-agent search; it returns code locations and is slower than a normal search. ",
 	"Pass `root` to search a project other than the workspace. ",
 ].join("");
 
@@ -42,7 +43,9 @@ export function buildArgs(args) {
 		if (typeof args.query !== "string" || args.query.trim() === "") {
 			throw new Error("query must be a non-empty string");
 		}
-		argv.push("--json", "--color", "never", "-y");
+		if (args.agent) argv.push("--agent", "--json");
+		else argv.push("--json");
+		argv.push("--color", "never", "-y");
 		if (args.no_update) argv.push("--no-update");
 		argv.push("-k", String(args.top_k ? Number(args.top_k) : 15));
 		if (args.pattern) argv.push("-e", args.pattern);
@@ -85,7 +88,27 @@ export function normalizeResults(parsed) {
 export function renderOutput(value) {
 	if (!value || typeof value !== "object") return String(value);
 	const lines = [];
-	if (value.command === "search" && Array.isArray(value.results)) {
+	if (value.command === "search" && value.agent) {
+		if (Array.isArray(value.locations)) {
+			const label = value.submitted === false ? "inspected location(s)" : "location(s)";
+			lines.push(`colgrep (agent): ${value.locations.length} ${label} for ${JSON.stringify(value.query)}`);
+			if (value.submitted === false) lines.push("(the agent did not submit a final answer; showing the locations it inspected)");
+			if (value.locations.length > 0) {
+				lines.push("");
+				for (const location of value.locations) {
+					const start = location.line === undefined ? "?" : location.line;
+					const end = location.end_line === undefined ? "?" : location.end_line;
+					lines.push(`${location.file}:${start}-${end}`);
+				}
+			}
+			if (value.error) lines.push(`[agent error] ${value.error}`);
+		} else {
+			lines.push("colgrep agent search failed");
+			if (value.error) lines.push(`[agent error] ${value.error}`);
+			if (value.stderr) lines.push(`[stderr]\n${value.stderr}`);
+			else if (value.stdout) lines.push(`[stdout]\n${value.stdout}`);
+		}
+	} else if (value.command === "search" && Array.isArray(value.results)) {
 		lines.push(`colgrep: ${value.results.length} result(s) for ${JSON.stringify(value.query)}`);
 		value.results.forEach((result, index) => {
 			const file = result.file || result.qualified_name || "?";
@@ -134,6 +157,7 @@ export function apply(ctx) {
 			include: { type: "string", description: "Only search files matching this glob (--include), e.g. \"*.rs\"." },
 			code_only: { type: "boolean", description: "Only search code files; skip text/config files such as md/txt/yaml/json (--code-only)." },
 			no_update: { type: "boolean", description: "Skip automatic index update and search the existing index as-is (--no-update)." },
+			agent: { type: "boolean", description: "Run colgrep's local sub-agent search (--agent --json); returns file:start-end locations. Requires colgrep >= 1.8.5 and the agent model (colgrep --install-agent)." },
 		},
 		output: {
 			schema: { type: "json" },
@@ -153,7 +177,7 @@ export function apply(ctx) {
 			const command = buildArgs(args).map((part, index) => (index === 0 ? part : quoteArg(part))).join(" ");
 			const spec = ctx.shell.resolve({
 				command,
-				timeoutMs: 300000,
+				timeoutMs: args.agent ? 600000 : 300000,
 				stdoutMaxBytes: 2 * 1024 * 1024,
 				signal: exec.signal,
 				sandboxPolicy: policy,
@@ -174,6 +198,33 @@ export function apply(ctx) {
 			};
 			if (commandName !== "search") {
 				return { ...common, stdout, stderr };
+			}
+			if (args.agent) {
+				let parsed = null;
+				try {
+					parsed = JSON.parse(stdout);
+				} catch {
+					parsed = null;
+				}
+				if (parsed !== null && Array.isArray(parsed.locations)) {
+					const locations = parsed.locations.map((entry) => ({
+						file: stripPathPrefix(entry.file),
+						line: entry.start_line,
+						end_line: entry.end_line,
+					}));
+					const agentError = typeof parsed.error === "string" && parsed.error !== "" ? parsed.error : undefined;
+					return {
+						...common,
+						ok: common.ok && agentError === undefined,
+						query: args.query,
+						agent: true,
+						submitted: parsed.submitted !== false,
+						count: locations.length,
+						locations,
+						...(agentError === undefined ? {} : { error: agentError, stderr }),
+					};
+				}
+				return { ...common, query: args.query, agent: true, locations: null, stdout, stderr };
 			}
 			let parsed = null;
 			try {

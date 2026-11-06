@@ -16,9 +16,9 @@
 
 | 路径 | 提供 |
 |---|---|
-| `dsh-hiss-plugins/` | 唯一的包（v1.3.0）：八个功能 + Plugins 页里的管理标签 |
+| `dsh-hiss-plugins/` | 唯一的包（v1.3.1）：八个功能 + Plugins 页里的管理标签 |
 | `dsh-hiss-plugins/lib/index.js` | 载体行：空的 host 半，只为让浏览器半被送出 |
-| `dsh-hiss-plugins/lib/colgrep/` | `colgrep` 模型工具（语义检索，`root` 可指定项目） |
+| `dsh-hiss-plugins/lib/colgrep/` | `colgrep` 模型工具（语义检索，`root` 可指定项目；`agent:true` 走本地 sub-agent） |
 | `dsh-hiss-plugins/lib/codegraph/` | 经 MCP 注册 `mcp__codegraph__*` 工具 + 无索引时的建图引导 |
 | `dsh-hiss-plugins/lib/project-mcp/` | 读会话项目根的 `.mcp.json`，挂进该 agent 自己的 scope（按会话隔离、子 agent 继承）；`status.js` 是 `/mcp` 报告的纯逻辑，`index.js` 注册宿主 `/mcp` 命令 |
 | `dsh-hiss-plugins/lib/gitbash/` | Windows 上接入 Git Bash：行自带 realm 隔离，同一 realm 内提供 `ctx.shell` 与宿主 `bash` 工具 |
@@ -127,13 +127,13 @@ profile 的每个 bundle 各贡献一层 patch，本包的 `cordis.patch.yml` �
 推一个 `dsh-hiss-plugins@<版本>` tag 即可（CI 见 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)）：
 
 ```powershell
-git tag dsh-hiss-plugins@1.3.0        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.3.0
+git tag dsh-hiss-plugins@1.3.1        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.3.1
 ```
 
 - 工作流在 **Windows runner** 上跑（git-bash 只在 Windows 上解析得出来，测试固件也按 Windows 路径语义断言；ubuntu 上这些断言不可能通过），CI 固定 pnpm 12.3.4 / Node 24：解析 tag → `pnpm install --frozen-lockfile` → `pnpm test` → registry 上没有该版本时，在 tag 指向的目录里 `npm publish`（**npm trusted publishing / OIDC，无需任何 token/secret**；包内 `prepublishOnly` 还会再跑一次该包自己的测试）。已发布的版本会跳过发布（幂等）。
 - tag 已存在但需要重跑：`gh workflow run publish.yml --ref <tag>`（`workflow_dispatch`）。
-- tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.3.0`）。
+- tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.3.1`）。
 - **首次使用前**，在 npmjs.com 上为 `dsh-hiss-plugins` 配置一次 trusted publisher：Package → Settings → Trusted Publisher → GitHub Actions，填组织 `hilariouhiss`、仓库 `dsh-hiss-plugins`、workflow 文件名 `publish.yml`。配好之后 CI 不再需要 `NPM_TOKEN`。
 - 手工发布（不走 CI，需先 `npm login`）：`pnpm run publish:dsh-hiss-plugins`。
 

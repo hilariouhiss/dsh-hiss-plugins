@@ -6,13 +6,13 @@ DeepSeek Harness (dsh) 插件仓库（pnpm workspace 单仓）：装一个包，
 
 | 包 | 说明 |
 |---|---|
-| [dsh-hiss-plugins](dsh-hiss-plugins)（npm: `dsh-hiss-plugins`，v1.3.0） | 一个 bundle，九条顶层行：一条载体行 + 八条功能行；八个功能各有一个开关，Plugins 页里逐行启停 |
+| [dsh-hiss-plugins](dsh-hiss-plugins)（npm: `dsh-hiss-plugins`，v1.3.1） | 一个 bundle，九条顶层行：一条载体行 + 八条功能行；八个功能各有一个开关，Plugins 页里逐行启停 |
 
 八个功能（行 id 就是开关的持久化地址）：
 
 | 功能 | 行 id | 需要什么 | 说明 |
 |---|---|---|---|
-| colgrep | `dsh-hiss-plugins-colgrep` | `colgrep` CLI 在 PATH 上 | 语义代码检索工具（按含义找代码，不要求拼得出标识符），源自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid) |
+| colgrep | `dsh-hiss-plugins-colgrep` | `colgrep` CLI ≥1.8.5（agent 模式需要 agent 模型） | 语义代码检索工具（按含义找代码，不要求拼得出标识符；`agent:true` 走本地 sub-agent），源自 [lightonai/next-plaid](https://github.com/lightonai/next-plaid) |
 | codegraph | `dsh-hiss-plugins-codegraph` | `codegraph` CLI 在 PATH 上，项目建过图 | 经 MCP 注册 `mcp__codegraph__codegraph_explore`（一次返回符号源码 + 调用链 + 影响范围），源自 [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) |
 | project-mcp | `dsh-hiss-plugins-project-mcp` | 项目根有 `.mcp.json` | 自动加载项目目录下 `.mcp.json` 声明的 MCP server，按会话挂载、按项目隔离（Claude Code 的 `.mcp.json` 格式）；宿主 `/mcp` 命令逐条报告各 server 的实时工具状态 |
 | git-bash | `dsh-hiss-plugins-gitbash` | Windows + Git for Windows | 把 Git Bash 接入为一级 shell（`bash` 工具，解析真正的 Git for Windows `bash.exe` 而非 PATH 上的 WSL 启动器；三档权限模式语义不变，受限模式下按标准升级路径使用）；非 Windows 默认禁用 |
@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-hiss-plugins
 dsh plugin --profile web add link:./dsh-hiss-plugins
 ```
 
-装完重启 dsh。注意 profile 的 `pnpm-workspace.yaml` 带供应链策略（`minimumReleaseAge`）：**不写版本号时，刚发布的版本会被挡住**，解析到上一代。要立刻用新版本就显式写版本号（`dsh-hiss-plugins@1.3.0`），或把该版本加进 profile 的 `minimumReleaseAgeExclude`。
+装完重启 dsh。注意 profile 的 `pnpm-workspace.yaml` 带供应链策略（`minimumReleaseAge`）：**不写版本号时，刚发布的版本会被挡住**，解析到上一代。要立刻用新版本就显式写版本号（`dsh-hiss-plugins@1.3.1`），或把该版本加进 profile 的 `minimumReleaseAgeExclude`。
 
 卸载用 `dsh plugin --profile web remove dsh-hiss-plugins`，然后重启。装坏的 profile 怎么救见 [AGENTS.md](AGENTS.md) §8。
 
@@ -77,12 +77,12 @@ policy, signal)`、`ctx.sandboxPolicy.resolve`、`ctx.tools.register`/`defineToo
 跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token/secret）** 发布这一个包。
 
 ```powershell
-git tag dsh-hiss-plugins@1.3.0        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.3.0
+git tag dsh-hiss-plugins@1.3.1        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.3.1
 ```
 
 tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败
-（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.3.0`）。
+（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.3.1`）。
 
 **首次使用前**，在 npmjs.com 上为 `dsh-hiss-plugins` 配置 trusted publisher：
 Package → Settings → Trusted Publisher → GitHub Actions，填组织 `hilariouhiss`、仓库 `dsh-hiss-plugins`、
