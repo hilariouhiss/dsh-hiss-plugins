@@ -1,12 +1,12 @@
 # dsh-hiss-plugins
 
-一个 DeepSeek Harness **bundle 插件**，把八个功能装在一个包里：**colgrep**（语义代码检索）、**codegraph**（代码图 MCP）、**project-mcp**（项目 `.mcp.json`）、**git-bash**（Windows 上的 Git Bash shell）、**superpowers**（superpowers 技能常驻引导）、**ponytail**（ponytail 采纳提示与 `/ponytail` 等级切换）、**init**（读项目生成 `AGENTS.md`）、**fix**（先查根因、确认后再修）。八个功能各占一条顶层行，可以在 **Plugins 页**里单独开关；包还带一个管理标签，就挂在那个页面上。
+一个 DeepSeek Harness **bundle 插件**，把九个功能装在一个包里：**colgrep**（语义代码检索）、**codegraph**（代码图 MCP）、**project-mcp**（项目 `.mcp.json`）、**git-bash**（Windows 上的 Git Bash shell）、**superpowers**（superpowers 技能常驻引导）、**ponytail**（ponytail 采纳提示与 `/ponytail` 等级切换）、**init**（读项目生成 `AGENTS.md`）、**fix**（先查根因、确认后再修）、**lan-access**（手机通过局域网打开本 GUI）。九个功能各占一条顶层行，可以在 **Plugins 页**里单独开关；包还带一个管理标签，就挂在那个页面上。
 
 安装后对 `web`、`headless` 等任意 profile 的**所有 preset、所有会话**生效。
 
-## 九条行与八个开关
+## 十条行与九个开关
 
-`cordis.patch.yml` 只做一件事：`insert` 九条**顶层行**。宿主用 `name`（模块说明符）解析模块，用 `id` 记住开关状态。
+`cordis.patch.yml` 只做一件事：`insert` 十条**顶层行**。宿主用 `name`（模块说明符）解析模块，用 `id` 记住开关状态。
 
 | 行 id | 模块 | 作用 | 默认 |
 |---|---|---|---|
@@ -19,8 +19,9 @@
 | `dsh-hiss-plugins-ponytail` | `dsh-hiss-plugins/ponytail` | ponytail 采纳提示（随等级变化）+ 宿主 `/ponytail` 等级命令 | 开 |
 | `dsh-hiss-plugins-init` | `dsh-hiss-plugins/init` | 宿主 `/init` 命令：读项目、生成/更新 `AGENTS.md` | 开 |
 | `dsh-hiss-plugins-fix` | `dsh-hiss-plugins/fix` | 宿主 `/fix` 命令：先查根因并报告，确认后才修复 | 开 |
+| `dsh-hiss-plugins-lan-access` | `dsh-hiss-plugins/lan-access` | 局域网网关：把 loopback 上的 GUI 转给手机，`/lan` 打印配对地址 | 关 |
 
-**八条功能行就是 Plugins 页里那八个开关。** 载体行不在标签的开关列表里 —— 它是空的 host 半，但只有它在，浏览器半才会被送进页面；关掉它，管理标签本身就没了。
+**九条功能行就是 Plugins 页里那九个开关。** 载体行不在标签的开关列表里 —— 它是空的 host 半，但只有它在，浏览器半才会被送进页面；关掉它，管理标签本身就没了。
 
 为什么必须是顶层行：插件管理器只为「组合后的 patch 里存在同 `id`、同 `name`，且挂载后父 entry 就是 profile 的 `include`」的行持久化开关。包在 `cordis:group` 里的子行在 `listPlugins()` 里被判为 `unaddressable`，**永远不会有开关**。所以这里没有组：git-bash 行把 realm 隔离写在自己身上（见下）。
 
@@ -51,7 +52,7 @@ dsh plugin --profile web remove dsh-hiss-plugins
 
 ## 管理标签（浏览器半）
 
-Plugins 页（侧边栏 **插件**）里多出一个 `dsh-hiss-plugins` 标签，列出上面八条功能行与它们的开关。
+Plugins 页（侧边栏 **插件**）里多出一个 `dsh-hiss-plugins` 标签，列出上面九条功能行与它们的开关。
 
 - 浏览器半是 **`lib/client.js`** —— 手写的 lazy-CJS bundle，没有构建步骤：`window.__ModuleLoader__.load({ id: "dsh-hiss-plugins", factory })` 只注册工厂，模块体（slot 注册、locale 字典）在首次被 require 时执行。`id` 必须逐字等于包名（客户端图里的行 id 就是包名）。
 - `package.json` 里 `dsh.client.platform = "web"`、`exports["./client"]` 指向 `lib/client.js`；客户端模块系统按 Loader 行扫描，**只有本包有行挂载，这个文件才会被送进浏览器**。
@@ -347,6 +348,30 @@ colgrep command:"init" / command:"status" / command:"clear"
 
 验证：在一个已知会失败的测试或小 bug 上执行 `/fix`，模型应先给出根因报告且不修改文件；回复“修吧”后，模型才实施修复并跑相关检查。
 
+## 功能：lan-access（手机通过局域网访问）
+
+监听本机的局域网（所有 IPv4 网卡），把桌面端（或任何 web profile）正在跑的那套 GUI 转给同一网络里的手机：**`/lan`** 打印带 token 的地址，本机 window 里打开它给出的 **QR 页**（`/lan-access`）用手机扫一下即可（签名 cookie 有效期 30 天）。这一行**默认关闭** —— 在用户网络上开监听是用户自己的决定。
+
+- **为什么是网关而不是改绑定**：桌面端内嵌的 host 固定 `--host 127.0.0.1 --port 0`，交给窗口的 URL 也固定是 `http://127.0.0.1:<端口>`；把 Host 改绑 LAN 地址会让桌面窗口连不上。所以这一行在同一个 host 进程里另开一个监听，转发到 loopback 上的 Host，并把 `Host`/`Origin` 改写成 loopback authority：既过 `dsh-client-connection` 的信任围栏，又让 cookie 绑定在稳定的 `127.0.0.1` 上（Host 的端口每次启动都变，绑端口会让 cookie 失效）。
+- **地址与端口**：默认绑 `0.0.0.0`（所有 IPv4 网卡），端口默认 `7505`。二维码与 `/lan` 只使用**非虚拟网卡**（Hyper-V 的 `vEthernet (Default Switch)`、VPN 等对手机不可达，只以文字列出、不生成码）。这样 Wi-Fi 重新拿地址（DHCP 换网段）也不会像绑具体地址那样报 `EADDRNOTAVAIL` 而静默失效；`/lan` 每次调用都重新读网卡，打印当前地址。若 7505 恰好被本机 Host 的 loopback 监听占用，会退回绑定当前 LAN 地址。要固定网卡或端口就在 profile 的 `cordis.patch.yml` 里给该行加 `config: { host: ..., port: ... }`（`port: 0` 交给系统分配，但地址就不稳定了）。
+- **界面入口**：侧边栏底部、设置/用户之上新增一行「手机连接」（收起成 56px 窄条时是手机图标）。点它会先确认 `lan-access` 行已启用（没启用就经 `pluginManager.setPluginEnabled` 开启），然后在应用内弹出二维码弹窗；弹窗用同一个 Host 源上的 `/lan-access?embed=1` 页面（iframe），因此复用同一套 cookie 鉴权。若 profile 没有 HMR、开启需要重启，弹窗会直接说明而不是给一个空二维码。
+- **配对（为什么二维码里没有 host token）**：二维码里放的是网关自己的一次性配对串 `?pair=…`，不是 Host 的 launch token。手机打开它时，**网关自己**拿当前进程的 token 去 loopback 换一次 cookie，把换来的 Host cookie 记在这个客户端地址名下，之后这个 IP 的每个请求（含 WebSocket upgrade）都由网关补上该 cookie。于是手机端既不需要保存 Host token，也不依赖浏览器 cookie 策略；换进程后重新打开二维码页即可（旧的 `pair` 会得到明确的 "pairing expired" 而不是 Host 那句通用 401）。
+- **诊断**：在 profile 的 `cordis.patch.yml` 里给该行加 `config: { debug: true }`，网关会把"配对成功/失败"和所有 `>=400` 的转发结果写到 `~/.dsh/lan-access.log`（256KB 上限、不记录 token/pair 值）。默认关闭。
+- **QR 页**：Host 自己的 loopback 端口上注册了 `/lan-access`，把当前每个 LAN 地址的配对 URL 渲染成内联 SVG 二维码；页面只认 `dsh-client-connection` 的 cookie（`admit`），所以配对串不会出现在未认证的请求里。`?embed=1` 去掉页头与边距，供弹窗内嵌。二维码编码器（`lib/lan-access/qr.js`）是本包自带的字节模式实现，输出已对照独立编码器逐模块校验。
+- **不重复开监听**：Host 本身已经绑在网络地址上时（`dsh web --host <地址>`），`/lan` 直接报那个地址，不再开第二个监听。
+- **认证就是 Host 自己那套**：token → 签名 cookie，本功能不新增鉴权、也不放宽围栏。`Origin` 只在它与入站 `Host` 同源时才改写，跨站请求仍被 Host 的 Origin / `sec-fetch-site` 检查拒绝。
+- **防火墙**：Windows 第一次监听会拦，管理员 PowerShell 放行一次：
+
+  ```powershell
+  New-NetFirewallRule -DisplayName "DSH LAN" -Direction Inbound -Protocol TCP -LocalPort 7505 -Action Allow -Profile Any
+  ```
+
+  很多 Wi-Fi 会被 Windows 标成 **Public**，只写 `-Profile Private` 时规则不生效；`-Profile Any` 两个都覆盖。若安装时已经给应用本身点过「允许访问」，那条程序级规则（TCP 任意端口）通常已经放行。
+
+- **明文的取舍**：局域网内是 `http://`，token 与 cookie 没有 TLS 保护，同网段可嗅探；只在可信网络用，公司/公共 Wi-Fi 下关掉这一行。手机端是非安全上下文：`navigator.clipboard` 不可用（复制按钮可能失灵）、装不成 PWA；GUI 是桌面优先布局，手机上偏挤。
+- **局限**：换 LAN IP（DHCP）后手机要用新地址（重新扫码即可，服务端 cookie 绑的是 `127.0.0.1`，重启/换端口不影响已配对设备）。token 每次重启都变。`/lan` 与 QR 页的输出会进会话日志（进程级 token，重启即失效）。
+- **不想装插件**：也可以直接跑一个独立实例 `dsh --profile web --host <LAN-IP> --port 7505`（反代场景再加 `--trusted-host`），启动时它自己打印带 token 的 URL；代价是另起一个 host 进程、和桌面端写同一份会话存储。
+
 ## 开发与测试
 
 ```powershell
@@ -357,8 +382,8 @@ pnpm test      # 在包目录内也可：node --test-isolation=none --test
 结构：
 
 ```text
-package.json          九条行的 bundle 声明（dsh.bundle.patch）+ 浏览器半声明（dsh.client）+ exports/files
-cordis.patch.yml      九条顶层行（载体 + 八个功能）
+package.json          十条行的 bundle 声明（dsh.bundle.patch）+ 浏览器半声明（dsh.client）+ exports/files
+cordis.patch.yml      十条顶层行（载体 + 九个功能）
 lib/index.js          载体行：空 host 半
 lib/client.js         浏览器半：Plugins 页管理标签（手写 lazy-CJS，无构建步骤）
 lib/colgrep/          colgrep 工具
@@ -369,17 +394,18 @@ lib/superpowers/      常驻引导提示词段（只注册 systemPrompt 段，�
 lib/ponytail/         lib/mode.js 纯逻辑（等级解析与默认值）+ lib/index.js 提示词段与 /ponytail 命令
 lib/init/             lib/prompt.js 纯逻辑（/init 指令正文）+ lib/index.js 命令接缝
 lib/fix/              lib/prompt.js 纯逻辑（/fix 诊断工作流正文）+ lib/index.js 命令接缝
+lib/lan-access/       lib/gateway.js 纯 Node 转发器 + lib/qr.js 二维码编码器（均无宿主导入）+ lib/index.js 行、/lan 与 QR 页
 locale/*.json         管理标签的文案字典
-test/                 node:test：<feature>/ 八个目录 + manifest / patch / client 三个契约测试
+test/                 node:test：<feature>/ 九个目录 + manifest / patch / client 三个契约测试
 ```
 
-`lib/project-mcp/config.js`、`lib/gitbash/resolve.js`、`lib/ponytail/mode.js`、`lib/init/prompt.js` 与 `lib/fix/prompt.js` 刻意不导入任何宿主包，所以这些纯逻辑分支可以在没有 dsh 安装的环境里完整跑测试；宿主接缝由各功能的 `index.js` 承担。浏览器半用 fake `window.__ModuleLoader__` + fake `ctx` 测注册与远程调用，不启动浏览器。测试全部离线，不联网、不依赖 `colgrep`/`codegraph` CLI。
+`lib/project-mcp/config.js`、`lib/gitbash/resolve.js`、`lib/ponytail/mode.js`、`lib/init/prompt.js`、`lib/fix/prompt.js`、`lib/lan-access/gateway.js` 与 `lib/lan-access/qr.js` 刻意不导入任何宿主包，所以这些纯逻辑分支可以在没有 dsh 安装的环境里完整跑测试；宿主接缝由各功能的 `index.js` 承担。浏览器半用 fake `window.__ModuleLoader__` + fake `ctx` 测注册与远程调用，不启动浏览器。测试全部离线，不联网、不依赖 `colgrep`/`codegraph` CLI。
 
 ## 发布（给维护者）
 
 ```powershell
-git tag dsh-hiss-plugins@1.3.1        # 必须与本目录 package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.3.1
+git tag dsh-hiss-plugins@1.4.0        # 必须与本目录 package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.4.0
 ```
 
 CI（`.github/workflows/publish.yml`，Windows runner）解析 tag、跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token）** 发布；包内 `prepublishOnly` 会再跑一次 `npm test`。手工发布：`npm publish`（`publishConfig.access` 已设为 public），发版前先 `node ../scripts/smoke-profile.mjs` 走一遍真实安装 + 真启动。发布新版本前记得递增 `package.json` 的 `version`。

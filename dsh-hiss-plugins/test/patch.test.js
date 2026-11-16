@@ -36,9 +36,9 @@ function isolateOf(row) {
 	return row.body.slice(start + 1).filter((line) => line.search(/\S/u) > indent);
 }
 
-test("the patch inserts exactly nine top-level rows", () => {
+test("the patch inserts exactly ten top-level rows", () => {
 	assert.equal((patch.match(/^- insert:\s*$/gmu) ?? []).length, 1, "the patch is a single insert layer");
-	assert.equal(rows.length, 9, `expected nine rows, found: ${rows.map((row) => row.id).join(", ")}`);
+	assert.equal(rows.length, 10, `expected ten rows, found: ${rows.map((row) => row.id).join(", ")}`);
 	assert.equal(new Set(rows.map((row) => row.id)).size, rows.length, "row ids must be unique");
 	for (const row of rows) {
 		assert.equal(row.indent, 4, `row ${row.id} (line ${row.line}) must be a top-level row, not a child of another row`);
@@ -57,18 +57,27 @@ test("no row is a cordis:group", () => {
 	}
 });
 
-test("the carrier row and the eight feature rows name this package", () => {
+test("the carrier row and the nine feature rows name this package", () => {
 	const names = new Map(
 		rows.map((row) => [row.id, /name:\s*['"]?([^'"\s]+)['"]?\s*$/mu.exec(row.body.join("\n"))?.[1]]),
 	);
 	assert.equal(names.get("dsh-hiss-plugins"), manifest.name, "the carrier row bears the package's own name");
-	for (const feature of ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init", "fix"]) {
+	for (const feature of ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init", "fix", "lan-access"]) {
 		assert.equal(
 			names.get(`dsh-hiss-plugins-${feature}`),
 			`${manifest.name}/${feature}`,
 			`the ${feature} row must mount the package's exported subpath`,
 		);
 	}
+});
+
+test("the lan-access row stays off until the user enables it", () => {
+	const lan = rows.find((row) => row.id === "dsh-hiss-plugins-lan-access");
+	assert.ok(lan, "the patch must insert the lan-access row");
+	assert.ok(
+		lan.body.some((line) => /^\s*disabled:\s*true\s*$/u.test(line)),
+		"putting a listener on the user's network is the user's decision, never a default",
+	);
 });
 
 test("the git-bash row carries its own realm isolation", () => {

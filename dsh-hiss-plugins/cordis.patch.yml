@@ -43,3 +43,10 @@
 
     - id: dsh-hiss-plugins-fix
       name: 'dsh-hiss-plugins/fix'
+
+    # The LAN gateway is off by default: enabling a row is the user's decision to
+    # put a listener on their network. It serves plain HTTP and the Host's own
+    # token/cookie is the only authentication, so nobody should opt in for them.
+    - id: dsh-hiss-plugins-lan-access
+      name: 'dsh-hiss-plugins/lan-access'
+      disabled: true

@@ -1,7 +1,7 @@
 {
 	"meta": {
 		"title": "dsh-hiss-plugins",
-		"description": "One DeepSeek Harness bundle carrying eight switchable plugins — colgrep, codegraph, project-mcp, git-bash, superpowers, ponytail, init and fix — managed from a tab in the Plugins page."
+		"description": "One DeepSeek Harness bundle carrying nine switchable plugins — colgrep, codegraph, project-mcp, git-bash, superpowers, ponytail, init, fix and lan-access — managed from a tab in the Plugins page."
 	},
 	"loading": "Reading plugins…",
 	"error": "Plugins are unavailable: {error}",
@@ -22,5 +22,17 @@
 	"featureSuperpowersDescription": "always-on superpowers skill mandate",
 	"featurePonytailDescription": "ponytail adoption hint and /ponytail level switching",
 	"featureInitDescription": "generates or updates the project's AGENTS.md (/init)",
-	"featureFixDescription": "diagnoses the root cause and waits for confirmation before fixing (/fix)"
+	"featureFixDescription": "diagnoses the root cause and waits for confirmation before fixing (/fix)",
+	"featureLanAccessDescription": "opens this GUI from a phone on the same network (/lan prints the tokenized URL)",
+	"lanButton": "Phone link",
+	"lanButtonAria": "Connect a phone over the LAN: show the QR code",
+	"lanTitle": "Scan to connect a phone",
+	"lanClose": "Close",
+	"lanLoading": "Enabling LAN access…",
+	"lanHint": "Keep the phone on the same network and scan with the camera; after one open the token is not needed for 30 days.",
+	"lanRestart": "LAN access is enabled, but DSH must restart before the QR code is available.",
+	"lanFailed": "Could not enable LAN access: {error}",
+	"lanNotInstalled": "This profile has no lan-access row.",
+	"lanReadOnly": "The lan-access row cannot be enabled from here ({reason}).",
+	"lanFrameFailed": "The QR page did not answer; open /lan-access to see why."
 }
