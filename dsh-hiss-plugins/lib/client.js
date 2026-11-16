@@ -61,7 +61,7 @@ window.__ModuleLoader__.load({
 		const LAN_DIALOG_STYLE = { width: "380px", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 48px)", overflow: "auto", display: "flex", flexDirection: "column", gap: "12px", padding: "16px", borderRadius: "12px", background: "var(--dsw-alias-bg-primary, #fff)", color: "var(--dsw-alias-label-primary)", boxShadow: "0 18px 48px rgba(0, 0, 0, 0.28)" };
 		const LAN_HEADER_STYLE = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" };
 		const LAN_HINT_STYLE = { margin: 0, color: "var(--dsw-alias-label-tertiary)", fontSize: "13px", lineHeight: "20px" };
-		const LAN_FRAME_STYLE = { width: "100%", height: "440px", border: "none", borderRadius: "8px", background: "#fff" };
+		const LAN_FRAME_STYLE = { width: "100%", height: "360px", border: "none", borderRadius: "8px", background: "#fff", display: "block" };
 
 		/**
 		 * Copy for the management tab; the `locale/*.json` files carry the same entries, where the
@@ -456,6 +456,7 @@ window.__ModuleLoader__.load({
 			const { store, t, ensureEnabled, probe } = lanUi;
 			const open = usePopupOpen(store);
 			const [state, setState] = React.useState({ status: "idle" });
+			const [frameHeight, setFrameHeight] = React.useState(360);
 			React.useEffect(() => {
 				if (!open) return undefined;
 				let current = true;
@@ -512,7 +513,17 @@ window.__ModuleLoader__.load({
 						state.status === "ready" ? jsx("iframe", {
 							title: t("lanTitle"),
 							src: state.src,
-							style: LAN_FRAME_STYLE
+							style: { ...LAN_FRAME_STYLE, height: `${String(frameHeight)}px` },
+							onLoad: (event) => {
+								// Same origin, so the document height is readable: the frame is cut
+								// to its content and the dialog never grows a second scrollbar.
+								try {
+									const measured = event?.currentTarget?.contentDocument?.documentElement?.scrollHeight;
+									if (typeof measured === "number" && measured > 0) setFrameHeight(Math.max(240, Math.min(measured + 2, 560)));
+								} catch {
+									// A cross-origin document keeps the default height.
+								}
+							}
 						}) : null,
 						jsx("p", { style: LAN_HINT_STYLE, children: t("lanHint") })
 					]

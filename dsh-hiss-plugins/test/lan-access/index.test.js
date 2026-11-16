@@ -179,8 +179,8 @@ test("the QR page refuses an unadmitted request and serves the admitted one", ()
 	assert.match(allowed.captured.headers["content-type"], /text\/html/u);
 	assert.equal(allowed.captured.body.split("<svg ").length - 1, 1, "only the reachable adapter gets a QR image");
 	assert.match(allowed.captured.body, /http:\/\/192\.168\.102\.124:7505\/\?pair=PAIR/u);
-	assert.match(allowed.captured.body, /已忽略虚拟网卡/u);
-	assert.match(allowed.captured.body, /172\.19\.112\.1/u, "the virtual adapter is still named, without a code");
+	assert.ok(!allowed.captured.body.includes("172.19.112.1"), "a virtual adapter is not listed at all");
+	assert.ok(!allowed.captured.body.includes("签名 cookie"), "the popup below the frame carries that hint");
 });
 
 test("the embed variant drops the page heading for the in-app popup", () => {
@@ -193,6 +193,7 @@ test("the embed variant drops the page heading for the in-app popup", () => {
 	assert.equal(response.captured.status, 200);
 	assert.ok(!response.captured.body.includes("<h1>"), "the popup host draws its own title");
 	assert.match(response.captured.body, /<svg /u);
+	assert.ok(!response.captured.body.includes("签名 cookie"), "no instructional paragraph in the frame");
 });
 
 test("a machine with only virtual adapters shows no QR at all", () => {

@@ -206,26 +206,26 @@ export function renderPage(state, connection, addresses, { embed = false } = {})
 		"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
 		"<title>DSH 手机访问</title><style>body{font:15px/1.6 system-ui,sans-serif;margin:24px;color:#111;background:#fafafa}",
 		"section{background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:16px;margin:16px 0;max-width:420px}",
-		"h1{font-size:20px}h2{font-size:14px;color:#52525b;margin:0 0 12px}code{word-break:break-all;font-size:12px}svg{max-width:100%;height:auto}",
-		embed ? "body{margin:0;padding:12px;background:#fff}section{margin:0 0 12px;border:none;padding:0;max-width:none}svg{display:block;margin:0 auto}" : "",
+		"h1{font-size:20px}h2{font-size:14px;color:#52525b;margin:0 0 12px}",
+		// The URL is read, not copied by sight: keep the body face at a readable size.
+		"code{font:inherit;font-size:14px;line-height:1.5;color:#3f3f46;word-break:break-all}svg{max-width:100%;height:auto}",
+		embed ? "body{margin:0;padding:8px;background:#fff;overflow:hidden}section{margin:0;border:none;padding:0;max-width:none}svg{display:block;margin:0 auto}" : "",
 		"</style></head><body>",
 	];
 	if (!embed) parts.push("<h1>手机访问本机 DSH</h1>");
 	if (state.status === "listening") {
 		const physical = addresses.filter((entry) => entry.virtual !== true);
-		const ignored = addresses.filter((entry) => entry.virtual === true);
 		if (physical.length === 0) parts.push("<p>本机当前只有虚拟网卡（Hyper-V / VPN），手机无法连接。</p>");
 		for (const entry of physical) {
 			const url = `http://${entry.address}:${String(state.port)}/?pair=${String(state.pair)}`;
 			parts.push(
 				`<section><h2>${escapeHtml(entry.name)} · ${escapeHtml(entry.address)}</h2>`,
-				qrSvg(qrMatrix(url), { scale: 8, border: 4 }),
+				qrSvg(qrMatrix(url), { scale: embed ? 6 : 8, border: 4 }),
 				`<p><code>${escapeHtml(url)}</code></p></section>`,
 			);
 		}
-		if (physical.length > 0) parts.push("<p>手机与这台电脑连同一个网络，扫码打开一次；签名 cookie 有效期 30 天。</p>");
-		// A virtual adapter has no phone-reachable route, so it gets a line, not a code.
-		if (ignored.length > 0) parts.push(`<p>已忽略虚拟网卡（手机不可达）：${ignored.map((entry) => `${escapeHtml(entry.name)} · ${escapeHtml(entry.address)}`).join("，")}</p>`);
+		// No instructions here: the popup below the frame and /lan already say it,
+		// and a virtual adapter with no phone-reachable route is simply not listed.
 	} else if (state.status === "direct") {
 		parts.push(`<p>Host 已监听网络地址 <code>http://${escapeHtml(String(state.bindHost))}:${String(state.port)}/</code>，无需网关。</p>`);
 	} else if (state.status === "failed") {
