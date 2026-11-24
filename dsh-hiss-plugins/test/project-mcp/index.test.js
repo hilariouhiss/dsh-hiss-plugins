@@ -463,3 +463,48 @@ test("a second wire does not remount servers a live agent already carries", asyn
 	assert.equal(mounted.length, 1, "the bridge is mounted once");
 	assert.equal(second, 0, "the second pass adds nothing");
 });
+test("the dialog route reads tools only through its own injection", async () => {
+	const cwd = dialogProject({ fs: { command: "npx" } });
+	const handlers = [];
+	const agent = {
+		id: "s1",
+		session: { header: { cwd } },
+		ctx: { plugin: async () => ({ dispose() {} }), tools: { restrict: () => () => {} } },
+	};
+	const tools = { schemas: () => [{ name: "mcp__cg__x" }] };
+	const webServer = { register(route) { handlers.push(route.handler); return () => {}; } };
+	const base = {
+		agents: { list: () => [agent], get: () => agent },
+		logger: { warn() {}, info() {}, error() {} },
+		on() {},
+		effect(callback) { return callback(); },
+		get(key) {
+			if (key === "webServer") return webServer;
+			return undefined;
+		},
+		inject(services, callback) {
+			const derived = Object.create(base);
+			const give = (name, value) => Object.defineProperty(derived, name, { value, configurable: true, writable: true });
+			if (services.includes("tools")) give("tools", tools);
+			if (services.includes("webServer")) give("webServer", webServer);
+			if (services.includes("commands")) give("commands", { register() {} });
+			return callback(derived);
+		},
+	};
+	// Cordis refuses `ctx.tools` on a fiber that did not inject it: the bug this pins.
+	Object.defineProperty(base, "tools", { get() { throw new Error("cannot get property \"tools\" without inject"); } });
+	apply(base);
+	assert.equal(handlers.length, 1, "the dialog route is mounted");
+	const request = {
+		method: "POST",
+		async *[Symbol.asyncIterator]() {
+			yield Buffer.from(JSON.stringify({ action: "status", sessionId: "s1" }));
+		},
+	};
+	const response = { code: undefined, body: undefined, writeHead(code) { this.code = code; }, end(body) { this.body = body; } };
+	await handlers[0](request, response);
+	assert.equal(response.code, 200);
+	const answer = JSON.parse(response.body);
+	assert.equal(answer.ok, true, JSON.stringify(answer));
+	assert.equal(answer.value.cwd, cwd);
+});

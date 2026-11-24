@@ -502,11 +502,19 @@ function registerDialogRoute(ctx) {
  */
 export function apply(ctx) {
 	const path = statePath(homedir());
+	// This row injects only `agents`: reading `ctx.tools` without injecting it throws
+	// in Cordis. Everything that touches the tool registry therefore runs on the
+	// context the optional `tools` injection hands back.
+	let toolCtx;
+	const restrictAll = (state) => {
+		if (toolCtx === undefined) return;
+		for (const agent of ctx.agents.list()) applyRestriction(toolCtx, agent, state);
+	};
 	const wire = async (agent) => {
 		try {
 			const state = await readState(path);
 			const mounted = await mountProjectMcp(ctx, agent, state);
-			applyRestriction(ctx, agent, state);
+			if (toolCtx !== undefined) applyRestriction(toolCtx, agent, state);
 			if (mounted > 0) ctx.logger.info(`project-mcp: mounted ${mounted} server(s) for ${agent.id}`);
 		} catch (error) {
 			ctx.logger.warn(`project-mcp: mounting failed for ${String(agent?.id)}: ${message(error)}`);
@@ -520,12 +528,15 @@ export function apply(ctx) {
 	// A server registers its tools only after it connects, so a switched-off tool
 	// usually appears later than the agent: re-apply whenever the tool list moves.
 	ctx.on("tools/change", () => {
-		void readState(path).then((state) => {
-			for (const agent of ctx.agents.list()) applyRestriction(ctx, agent, state);
-		}).catch(() => {});
+		void readState(path).then(restrictAll).catch(() => {});
+	});
+	ctx.inject(["tools"], (injected) => {
+		toolCtx = injected;
+		// Agents created before the injection settled still need their restriction.
+		void readState(path).then(restrictAll).catch(() => {});
+		registerDialogRoute(injected);
 	});
 	// A reload mid-session must reach agents that are already live.
 	for (const agent of ctx.agents.list()) void wire(agent);
 	registerStatusCommand(ctx);
-	registerDialogRoute(ctx);
 }
