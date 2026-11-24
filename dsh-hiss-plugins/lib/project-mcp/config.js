@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 /**
@@ -155,4 +155,57 @@ export async function loadServers(configPath, cwd) {
 		}
 	}
 	return { servers, skipped };
+}
+/** Names the MCP bridge accepts as a tool namespace. */
+const SERVER_NAME = /^[A-Za-z0-9_-]{1,32}$/;
+
+/**
+ * Validate one server entry a user typed into the dialog before it reaches any file.
+ * @param {string} serverName - the entry key, which becomes the tool namespace.
+ * @param {unknown} entry - the raw entry value.
+ * @param {string} projectDir - directory holding `.mcp.json`, the stdio default cwd.
+ * @returns {void}
+ * @throws when the name or the entry could not be used.
+ */
+export function validateEntry(serverName, entry, projectDir) {
+	if (!SERVER_NAME.test(serverName)) {
+		throw new Error(`"${serverName}": name must match ${String(SERVER_NAME)}`);
+	}
+	toSpec(serverName, entry, projectDir);
+}
+
+/**
+ * Read one `.mcp.json` as a plain document, so a write can keep every unrelated key.
+ * @param {string} configPath - absolute path to the `.mcp.json`.
+ * @returns {Promise<Record<string, unknown>>} the parsed object, or `{}` when the file is absent.
+ * @throws when the file exists but is not a JSON object.
+ */
+export async function readConfig(configPath) {
+	let raw;
+	try {
+		raw = await readFile(configPath, "utf8");
+	} catch {
+		return {};
+	}
+	let parsed;
+	try {
+		parsed = JSON.parse(raw);
+	} catch (error) {
+		throw new Error(`${configPath} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	if (!isRecord(parsed)) throw new Error(`${configPath} must contain a JSON object`);
+	return parsed;
+}
+
+/**
+ * Write one `.mcp.json` atomically: a rename never leaves a half-written config.
+ * @param {string} configPath - absolute path to the `.mcp.json`.
+ * @param {Record<string, unknown>} parsed - the document to write.
+ * @returns {Promise<void>}
+ */
+export async function writeConfig(configPath, parsed) {
+	await mkdir(dirname(resolve(configPath)), { recursive: true });
+	const temporary = `${configPath}.${String(process.pid)}.${String(Date.now())}.tmp`;
+	await writeFile(temporary, `${JSON.stringify(parsed, null, 2)}\n`);
+	await rename(temporary, configPath);
 }

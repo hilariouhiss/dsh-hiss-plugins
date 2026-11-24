@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expand, findConfigPath, loadServers } from "../../lib/project-mcp/config.js";
+import { expand, findConfigPath, loadServers, readConfig, validateEntry, writeConfig } from "../../lib/project-mcp/config.js";
 
 /** Build `{root}/{name}` and return its absolute path. */
 function dir(root, name) {
@@ -184,4 +184,34 @@ test("loadServers rejects a config that is not valid JSON", async () => {
 	const configPath = touch(join(root, ".mcp.json"), "{ not json");
 
 	await assert.rejects(() => loadServers(configPath, root), /not valid JSON/);
+});
+test("validateEntry rejects an unusable server name", () => {
+	assert.throws(() => validateEntry("bad name", { command: "x" }, "."), /name must match/);
+	assert.throws(() => validateEntry("x".repeat(33), { command: "x" }, "."), /name must match/);
+	assert.throws(() => validateEntry("ok", { type: "stdio" }, "."), /command must be a non-empty string/);
+	assert.doesNotThrow(() => validateEntry("ok", { command: "npx" }, "."));
+});
+
+test("writeConfig keeps unrelated keys and round-trips", async () => {
+	const root = mkdtempSync(join(tmpdir(), "project-mcp-"));
+	const path = join(root, ".mcp.json");
+	writeFileSync(path, JSON.stringify({ mcpServers: { old: { command: "a" } }, extra: 1 }));
+
+	await writeConfig(path, { mcpServers: { old: { command: "a" }, fresh: { command: "b" } }, extra: 1 });
+
+	assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), {
+		mcpServers: { old: { command: "a" }, fresh: { command: "b" } },
+		extra: 1,
+	});
+	rmSync(root, { recursive: true, force: true });
+});
+
+test("readConfig reads a missing file as empty and refuses broken JSON by path", async () => {
+	const root = mkdtempSync(join(tmpdir(), "project-mcp-"));
+	const path = join(root, ".mcp.json");
+
+	assert.deepEqual(await readConfig(path), {});
+	writeFileSync(path, "{oops");
+	await assert.rejects(() => readConfig(path), /\.mcp\.json is not valid JSON/);
+	rmSync(root, { recursive: true, force: true });
 });
