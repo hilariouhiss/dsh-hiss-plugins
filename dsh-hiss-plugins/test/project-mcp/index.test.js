@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { apply, mountProjectMcp } from "../../lib/project-mcp/index.js";
+import { apply, depsFor, mountProjectMcp } from "../../lib/project-mcp/index.js";
+import { readState } from "../../lib/project-mcp/state.js";
 
 /** A project directory holding one `.mcp.json` with the given raw text. */
 function projectWith(text) {
@@ -350,4 +351,115 @@ test("/mcp reports a session without a working directory", async () => {
 		text: "No session working directory; no project MCP servers are mounted.",
 	});
 	assert.deepEqual(ctx.schemas, []);
+});
+/**
+ * A host with two live agents in one workspace, enough to exercise the dialog
+ * operations without any real MCP bridge.
+ * @param {string} cwd - the shared working directory.
+ * @param {{ globalTools?: string[], agentTools?: string[], plugin?: Function }} [options]
+ * @returns the recorded calls and the two agents.
+ */
+function workspaceHost(cwd, options = {}) {
+	const globalTools = options.globalTools ?? ["mcp__cg__x", "read"];
+	const agentTools = options.agentTools ?? globalTools;
+	const calls = { restrict: [], plugin: [], disposed: [], settings: [] };
+	const makeAgent = (id) => {
+		const agent = {
+			id,
+			session: { header: { cwd } },
+			ctx: {
+				tools: {
+					restrict(filter) {
+						calls.restrict.push([id, filter.deny]);
+						return () => calls.disposed.push([id, "restrict"]);
+					},
+				},
+				plugin(_plugin, _config) {
+					calls.plugin.push([id, _config.serverName]);
+					if (options.plugin !== undefined) return options.plugin(calls, id, _config);
+					return Promise.resolve({ dispose() { calls.disposed.push([id, _config.serverName]); } });
+				},
+			},
+		};
+		return agent;
+	};
+	const agents = [makeAgent("s1"), makeAgent("s2")];
+	const ctx = {
+		agents: {
+			get: (id) => agents.find((agent) => agent.id === id),
+			list: () => agents,
+		},
+		tools: {
+			schemas: (scope) => (scope === undefined ? globalTools : agentTools).map((name) => ({ name })),
+		},
+		settings: {
+			update(ns, patch) {
+				calls.settings.push([ns, patch]);
+				return Promise.resolve();
+			},
+		},
+		mcpManager: { list: () => [{ name: "cg" }] },
+		get(key) {
+			return this[key];
+		},
+		logger: { warn() {}, info() {}, error() {} },
+	};
+	return { ctx, calls, agents };
+}
+
+/** A project directory holding one `.mcp.json` with the given servers. */
+function dialogProject(servers) {
+	const root = mkdtempSync(join(tmpdir(), "project-mcp-dialog-"));
+	mkdirSync(join(root, ".git"), { recursive: true });
+	writeFileSync(join(root, ".mcp.json"), JSON.stringify({ mcpServers: servers }));
+	return root;
+}
+
+test("set-tool refuses a name that is not an MCP tool", async () => {
+	const cwd = dialogProject({});
+	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
+	const path = join(dir, "state.json");
+	const { ctx } = workspaceHost(cwd);
+	await assert.rejects(() => depsFor(ctx, { path }).setTool("s1", "read", false), /is not an MCP tool name/u);
+	assert.deepEqual(await readState(path), { workspaces: {} }, "nothing was remembered");
+});
+
+test("set-tool hides the tool from every agent in the workspace", async () => {
+	const cwd = dialogProject({});
+	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
+	const { ctx, calls } = workspaceHost(cwd);
+	await depsFor(ctx, { path: join(dir, "state.json") }).setTool("s1", "mcp__cg__x", false);
+	assert.deepEqual(calls.restrict, [["s1", ["mcp__cg__x"]], ["s2", ["mcp__cg__x"]]]);
+});
+
+test("set-server mounts and unmounts every agent in the workspace", async () => {
+	const cwd = dialogProject({ fs: { command: "npx" } });
+	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
+	const deps = depsFor(workspaceHost(cwd).ctx, { path: join(dir, "state.json") });
+	const { ctx: host, calls } = workspaceHost(cwd);
+	const bound = depsFor(host, { path: join(dir, "state.json") });
+	await bound.setServer("s1", "fs", true);
+	assert.deepEqual(calls.plugin, [["s1", "fs"], ["s2", "fs"]]);
+	await bound.setServer("s1", "fs", false);
+	assert.deepEqual(calls.disposed, [["s1", "fs"], ["s2", "fs"]]);
+});
+
+test("two switches in flight both land", async () => {
+	const cwd = dialogProject({});
+	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
+	const path = join(dir, "state.json");
+	const { ctx } = workspaceHost(cwd, { agentTools: ["mcp__cg__x", "mcp__cg__y"], globalTools: ["mcp__cg__x", "mcp__cg__y"] });
+	const deps = depsFor(ctx, { path });
+	await Promise.all([deps.setTool("s1", "mcp__cg__x", false), deps.setTool("s1", "mcp__cg__y", false)]);
+	const state = await readState(path);
+	assert.deepEqual(state.workspaces[Object.keys(state.workspaces)[0]].disabledTools.sort(), ["mcp__cg__x", "mcp__cg__y"]);
+});
+
+test("a second wire does not remount servers a live agent already carries", async () => {
+	const cwd = dialogProject({ fs: { command: "npx" } });
+	const { agent, mounted } = fakeAgent(cwd);
+	await mountProjectMcp(fakeContext(), agent);
+	const second = await mountProjectMcp(fakeContext(), agent);
+	assert.equal(mounted.length, 1, "the bridge is mounted once");
+	assert.equal(second, 0, "the second pass adds nothing");
 });

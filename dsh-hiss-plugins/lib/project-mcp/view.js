@@ -67,3 +67,17 @@ export function buildView({ cwd, toolNames = [], globalServers = [], workspaceSe
 		.map(([name, tools]) => ({ name, enabled: !off.includes(name), tools: [...tools].sort((left, right) => (left.name < right.name ? -1 : 1)) }));
 	return { cwd, global: section(global, []), local: section(localTools, disabledServers) };
 }
+/**
+ * The tools one workspace has switched off that still exist globally.
+ *
+ * `tools.restrict` refuses a name it cannot see, so a remembered name that no
+ * longer exists (a server removed, a project tool) must be dropped here instead
+ * of failing the whole restriction.
+ * @param {string[]} disabledTools - the workspace switch list.
+ * @param {string[]} globalNames - names currently registered in the global view.
+ * @returns {string[]} the usable deny set, without duplicates.
+ */
+export function denyFor(disabledTools, globalNames) {
+	const known = new Set(globalNames);
+	return [...new Set(disabledTools)].filter((name) => known.has(name));
+}

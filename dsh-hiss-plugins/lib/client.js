@@ -782,6 +782,7 @@ window.__ModuleLoader__.load({
 						] }),
 						state.kind === "loading" ? jsx("p", { role: "status", style: DESCRIPTION_STYLE, children: t("mcpLoading") }) : null,
 						state.kind === "error" ? jsx("p", { role: "alert", style: DESCRIPTION_STYLE, children: t("mcpFailed", { error: state.message }) }) : null,
+						view !== undefined && view.workspaceError !== undefined ? jsx("p", { role: "alert", style: DESCRIPTION_STYLE, children: t("mcpFailed", { error: view.workspaceError }) }) : null,
 						view === undefined ? null : jsxs("div", { style: MCP_SECTION_STYLE, children: [
 							jsx("strong", { children: t("mcpGlobal") }),
 							view.global.length === 0 ? jsx("p", { style: DESCRIPTION_STYLE, children: t("mcpNoGlobal") }) : jsx("ul", { style: LIST_STYLE, children: view.global.map((server) => serverBlock(server, "global", handlers)) }),

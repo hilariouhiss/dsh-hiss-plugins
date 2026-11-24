@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { expand, findConfigPath, loadServers, readConfig, validateEntry, writeConfig } from "../../lib/project-mcp/config.js";
+import { join, resolve } from "node:path";
+import { entryFromInput, expand, findConfigPath, loadServers, managerEntry, readConfig, splitArgs, validateEntry, writeConfig } from "../../lib/project-mcp/config.js";
 
 /** Build `{root}/{name}` and return its absolute path. */
 function dir(root, name) {
@@ -214,4 +214,39 @@ test("readConfig reads a missing file as empty and refuses broken JSON by path",
 	writeFileSync(path, "{oops");
 	await assert.rejects(() => readConfig(path), /\.mcp\.json is not valid JSON/);
 	rmSync(root, { recursive: true, force: true });
+});
+test("readConfig refuses an unreadable file instead of pretending it is empty", async () => {
+	const root = mkdtempSync(join(tmpdir(), "project-mcp-"));
+	await assert.rejects(() => readConfig(root), /(EISDIR|EPERM|EBUSY|EACCES)/);
+	rmSync(root, { recursive: true, force: true });
+});
+
+test("entryFromInput builds a stdio or http .mcp.json entry", () => {
+	assert.deepEqual(entryFromInput({ type: "stdio", command: "npx", args: "-y  server-fs  ." }), {
+		type: "stdio",
+		command: "npx",
+		args: ["-y", "server-fs", "."],
+	});
+	assert.deepEqual(entryFromInput({ type: "http", url: "https://example.com/mcp" }), {
+		type: "http",
+		url: "https://example.com/mcp",
+	});
+	assert.deepEqual(splitArgs(["a", 2, "b"]), ["a", "b"]);
+});
+
+test("managerEntry maps a declared server to the manager's flat entry", () => {
+	assert.deepEqual(managerEntry({ type: "http", url: "https://x/mcp", headers: { A: "b" } }, "/proj"), {
+		transport: "streamable-http",
+		url: "https://x/mcp",
+		headers: { A: "b" },
+		enabled: true,
+	});
+	assert.deepEqual(managerEntry({ command: "npx", args: ["-y", "s"], cwd: "sub" }, "/proj"), {
+		transport: "stdio",
+		command: "npx",
+		args: ["-y", "s"],
+		env: {},
+		cwd: resolve("/proj", "sub"),
+		enabled: true,
+	});
 });

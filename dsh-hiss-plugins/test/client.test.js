@@ -329,6 +329,31 @@ test("the dialog lists both sections and reports a server with no tools", async 
 	}
 });
 
+test("a broken project file is reported without blanking the dialog", async () => {
+	const realFetch = globalThis.fetch;
+	globalThis.fetch = async () => ({
+		ok: true,
+		async json() {
+			return { ok: true, value: {
+				cwd: "proj",
+				global: [{ name: "cg", enabled: true, tools: [] }],
+				local: [],
+				workspaceError: ".mcp.json is not valid JSON",
+			} };
+		},
+	});
+	try {
+		const { calls } = applyBundle();
+		calls.decorations[0].ui.run({ sessionId: "s1" });
+		const dialog = calls.registered.find((entry) => entry.registration.id === "mcp.dialog");
+		const text = textOf(await mountComponent(dialog.component, {}).settle());
+		assert.ok(text.includes("Global MCP"), "the global section still draws");
+		assert.match(text, /not valid JSON/u);
+	} finally {
+		globalThis.fetch = realFetch;
+	}
+});
+
 test("the MCP dialog occupies the shell overlay beside the phone popup", () => {
 	const { calls } = applyBundle();
 	const ids = calls.registered.filter((entry) => entry.registration.name === "shell.overlay").map((entry) => entry.registration.id).sort();

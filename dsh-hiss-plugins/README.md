@@ -210,6 +210,8 @@ colgrep command:"init" / command:"status" / command:"clear"
 4. **只看 `.mcp.json`**：不读 `.dsh/mcp.yml`、用户层配置或 `~/.claude.json`。
 5. **文本报告只列本项目声明的 server**：项目外（profile / preset 里）配置的 MCP server 只计入末尾的工具总数，不列名字。Web 弹窗会经 mcp-manager 的清单列出这些全局服务器名（它只给名字与状态，不给连接探活）。
 6. **弹窗不做连接探测**：没连上的服务器显示「未连接 / 0 个工具」，不主动 probe（probe 会真的拉起一个 server 进程）。
+7. **新增表单的 args 按空白切分**：参数里带空格（如含空格的路径）无法在表单表达，需手改 `.mcp.json`。
+8. **开关状态按目录路径记**：同一个项目用不同写法（盘符大小写、符号链接）打开会话，会各记一套开关。
 
 ## 功能：git-bash
 

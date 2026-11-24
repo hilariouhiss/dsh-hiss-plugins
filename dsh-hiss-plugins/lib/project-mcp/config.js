@@ -1,4 +1,5 @@
-import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, chmod, mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 /**
@@ -184,8 +185,11 @@ export async function readConfig(configPath) {
 	let raw;
 	try {
 		raw = await readFile(configPath, "utf8");
-	} catch {
-		return {};
+	} catch (error) {
+		// Only an absent file reads as empty: a locked or unreadable one must fail
+		// the write path instead of being replaced by a document holding one server.
+		if (error?.code === "ENOENT") return {};
+		throw error;
 	}
 	let parsed;
 	try {
@@ -205,7 +209,68 @@ export async function readConfig(configPath) {
  */
 export async function writeConfig(configPath, parsed) {
 	await mkdir(dirname(resolve(configPath)), { recursive: true });
-	const temporary = `${configPath}.${String(process.pid)}.${String(Date.now())}.tmp`;
-	await writeFile(temporary, `${JSON.stringify(parsed, null, 2)}\n`);
-	await rename(temporary, configPath);
+	// A token-bearing .mcp.json must not lose its mode to the rename, and a
+	// failed write must not leave a tmp file in the project directory.
+	const mode = await stat(configPath).then((info) => info.mode & 0o777, () => undefined);
+	const temporary = `${configPath}.${randomUUID()}.tmp`;
+	try {
+		await writeFile(temporary, `${JSON.stringify(parsed, null, 2)}\n`);
+		if (mode !== undefined) await chmod(temporary, mode);
+		await rename(temporary, configPath);
+	} finally {
+		await unlink(temporary).catch(() => {});
+	}
+}
+/** Split a dialog argument line into argv, without shell quoting. */
+export function splitArgs(value) {
+	if (Array.isArray(value)) return value.filter((entry) => typeof entry === "string");
+	return typeof value === "string" ? value.split(/\s+/).filter((entry) => entry !== "") : [];
+}
+
+/**
+ * A `.mcp.json` entry built from the dialog add form.
+ * @param {object} input - the form values.
+ * @returns {Record<string, unknown>} the entry to store under `mcpServers`.
+ */
+export function entryFromInput(input) {
+	if (input.type === "http") {
+		return {
+			type: "http",
+			url: String(input.url ?? ""),
+			...(isRecord(input.headers) ? { headers: input.headers } : {}),
+		};
+	}
+	const args = splitArgs(input.args);
+	return {
+		type: "stdio",
+		command: String(input.command ?? ""),
+		...(args.length === 0 ? {} : { args }),
+		...(isRecord(input.env) ? { env: input.env } : {}),
+	};
+}
+
+/**
+ * The manager-shaped entry one declared server becomes when registered globally.
+ * @param {unknown} entry - the `.mcp.json` entry.
+ * @param {string} projectDir - directory holding that `.mcp.json`.
+ * @returns {Record<string, unknown>} the entry `mcp-manager` accepts.
+ */
+export function managerEntry(entry, projectDir) {
+	const fields = isRecord(entry) ? entry : {};
+	if (fields.type === "http") {
+		return {
+			transport: "streamable-http",
+			url: String(fields.url ?? ""),
+			headers: isRecord(fields.headers) ? fields.headers : {},
+			enabled: true,
+		};
+	}
+	return {
+		transport: "stdio",
+		command: String(fields.command ?? ""),
+		args: Array.isArray(fields.args) ? fields.args.filter((arg) => typeof arg === "string") : [],
+		env: isRecord(fields.env) ? fields.env : {},
+		cwd: resolve(projectDir, typeof fields.cwd === "string" ? fields.cwd : "."),
+		enabled: true,
+	};
 }

@@ -2,10 +2,10 @@ import * as McpClient from "@deepseek-ai/dsh-mcp-client";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { dispatch } from "./actions.js";
-import { findConfigPath, loadServers, readConfig, validateEntry, writeConfig } from "./config.js";
+import { entryFromInput, findConfigPath, loadServers, managerEntry, readConfig, validateEntry, writeConfig } from "./config.js";
 import { normalizeState, readState, statePath, withServer, withTool, writeState } from "./state.js";
 import { countTools, renderStatus } from "./status.js";
-import { buildView } from "./view.js";
+import { buildView, denyFor } from "./view.js";
 
 export const name = "project-mcp";
 export const inject = ["agents"];
@@ -19,8 +19,12 @@ const BODY_LIMIT = 64 * 1024;
  * Per-agent bookkeeping: the fibers this row mounted and the restriction in force.
  * A restriction is per agent scope, so toggling one tool means re-applying the
  * whole deny set for that agent, never a global switch.
+ *
+ * The record lives on the agent object under a global symbol: mounts survive a
+ * row reload (they belong to the agent scope, not this fiber), so a module-level
+ * Map would forget their unmount handles on every reload and remount duplicates.
  */
-const records = new Map();
+const RECORDS = Symbol.for("dsh-hiss-plugins.project-mcp.records");
 
 /** Readable text for anything a rejected promise or a schema can throw. */
 function message(error) {
@@ -29,12 +33,8 @@ function message(error) {
 
 /** One agent's mounted servers, remembered deny set, and live restriction disposer. */
 function recordFor(agent) {
-	let record = records.get(agent);
-	if (record === undefined) {
-		record = { servers: new Map(), deny: new Set(), lift: undefined };
-		records.set(agent, record);
-	}
-	return record;
+	if (agent[RECORDS] === undefined) agent[RECORDS] = { servers: new Map(), deny: new Set(), lift: undefined };
+	return agent[RECORDS];
 }
 
 /** The session directory an agent reads its project from. */
@@ -76,20 +76,24 @@ function toolNamesOf(ctx, scope) {
 function applyRestriction(ctx, agent, state) {
 	const cwd = cwdOf(agent);
 	if (cwd === undefined || agent?.ctx?.tools === undefined) return;
-	const known = new Set(toolNamesOf(ctx, undefined));
-	const deny = switchesOf(state, cwd).disabledTools.filter((tool) => known.has(tool));
+	const deny = denyFor(switchesOf(state, cwd).disabledTools, toolNamesOf(ctx, undefined));
 	const record = recordFor(agent);
 	const same = deny.length === record.deny.size && deny.every((tool) => record.deny.has(tool));
 	if (same) return;
-	record.deny = new Set(deny);
-	record.lift?.();
-	record.lift = undefined;
-	if (deny.length === 0) return;
-	try {
-		record.lift = agent.ctx.tools.restrict({ deny });
-	} catch (error) {
-		ctx.logger.warn(`project-mcp: could not hide ${deny.join(", ")} for ${String(agent.id)}: ${message(error)}`);
+	let lift = () => {};
+	if (deny.length > 0) {
+		try {
+			// The new restriction is applied before the old one is lifted, so a
+			// refusal leaves the previous deny set in force instead of none.
+			lift = agent.ctx.tools.restrict({ deny });
+		} catch (error) {
+			ctx.logger.warn(`project-mcp: could not hide ${deny.join(", ")} for ${String(agent.id)}: ${message(error)}`);
+			return;
+		}
 	}
+	record.lift?.();
+	record.lift = deny.length === 0 ? undefined : lift;
+	record.deny = new Set(deny);
 }
 
 /** Mount one declared server into an agent scope and remember how to unmount it. */
@@ -151,6 +155,9 @@ export async function mountProjectMcp(ctx, agent, state) {
 	let mounted = 0;
 	for (const { serverName, spec } of loaded.servers) {
 		if (disabled.includes(serverName)) continue;
+		// A reload reaches agents that already carry these mounts; mounting again
+		// would collide on the tool names inside the same agent scope.
+		if (recordFor(agent).servers.has(serverName)) continue;
 		if (await mountServer(ctx, agent, spec)) mounted += 1;
 	}
 	return mounted;
@@ -257,58 +264,61 @@ async function viewOf(ctx, agent, cwd, state) {
 	const { disabledTools, disabledServers } = switchesOf(state, cwd);
 	const configPath = await findConfigPath(cwd);
 	let workspaceServers = [];
+	let workspaceError;
 	if (configPath !== undefined) {
-		const loaded = await loadServers(configPath, cwd);
-		workspaceServers = loaded.servers.map((entry) => entry.serverName);
+		try {
+			const loaded = await loadServers(configPath, cwd);
+			workspaceServers = loaded.servers.map((entry) => entry.serverName);
+		} catch (error) {
+			// A broken project file must not blank the whole dialog: the global
+			// section and the add form do not depend on it.
+			workspaceServers = [];
+			workspaceError = message(error);
+		}
 	}
-	return buildView({
-		cwd,
-		toolNames: toolNamesOf(ctx, agent),
-		globalServers: globalServerNames(ctx, workspaceServers),
-		workspaceServers,
-		disabledTools,
-		disabledServers,
-	});
-}
-
-/** Split a dialog argument line into argv, without shell quoting. */
-function splitArgs(value) {
-	if (Array.isArray(value)) return value.filter((entry) => typeof entry === "string");
-	return typeof value === "string" ? value.split(/\s+/).filter((entry) => entry !== "") : [];
-}
-
-/** A `.mcp.json` entry built from the dialog's add form. */
-function entryFromInput(input) {
-	if (input.type === "http") {
-		return {
-			type: "http",
-			url: String(input.url ?? ""),
-			...(input.headers !== null && typeof input.headers === "object" ? { headers: input.headers } : {}),
-		};
-	}
-	const args = splitArgs(input.args);
 	return {
-		type: "stdio",
-		command: String(input.command ?? ""),
-		...(args.length === 0 ? {} : { args }),
-		...(input.env !== null && typeof input.env === "object" ? { env: input.env } : {}),
+		...buildView({
+			cwd,
+			toolNames: toolNamesOf(ctx, agent),
+			globalServers: globalServerNames(ctx, workspaceServers),
+			workspaceServers,
+			disabledTools,
+			disabledServers,
+		}),
+		...(workspaceError === undefined ? {} : { workspaceError }),
 	};
 }
 
-/** The manager-shaped entry one declared server becomes when registered globally. */
-function managerEntry(entry, projectDir) {
-	const type = entry?.type ?? "stdio";
-	if (type === "http") {
-		return { transport: "streamable-http", url: String(entry.url ?? ""), headers: entry.headers ?? {}, enabled: true };
-	}
-	return {
-		transport: "stdio",
-		command: String(entry.command ?? ""),
-		args: Array.isArray(entry.args) ? entry.args : [],
-		env: entry.env ?? {},
-		cwd: resolve(projectDir, typeof entry.cwd === "string" ? entry.cwd : "."),
-		enabled: true,
-	};
+/** True for a plain object, so arrays and null are rejected as records. */
+function isRecord(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** The declared servers of one document, refusing an array-shaped `mcpServers`. */
+function declaredServers(parsed) {
+	return isRecord(parsed.mcpServers) ? parsed.mcpServers : {};
+}
+
+/**
+ * Serialize every read-modify-write the dialog performs. Two windows toggling at
+ * once would otherwise read the same state and let the later write win.
+ */
+let mutationTail = Promise.resolve();
+
+/**
+ * Run one mutation after the previous one settled.
+ * @param {() => Promise<object>} change - the read-modify-write.
+ * @returns {Promise<object>} what the mutation produced.
+ */
+function mutate(change) {
+	const next = mutationTail.then(change);
+	mutationTail = next.then(() => {}, () => {});
+	return next;
+}
+
+/** Every live agent reading one workspace. */
+function agentsInWorkspace(ctx, cwd) {
+	return ctx.agents.list().filter((agent) => cwdOf(agent) === cwd);
 }
 
 /** Unmount one remembered server for one agent. */
@@ -334,10 +344,11 @@ async function mountNamed(ctx, agent, cwd, serverName) {
 /**
  * The host operations the dialog dispatcher calls, bound to the live host.
  * @param {object} ctx - host context.
+ * @param {{ path?: string }} [options] - the state file, defaulting to the harness home (tests pass a temp path).
  * @returns {object} one method per dialog action.
  */
-function depsFor(ctx) {
-	const path = statePath(homedir());
+export function depsFor(ctx, options = {}) {
+	const path = options.path ?? statePath(homedir());
 	const agentOf = (sessionId) => {
 		const agent = typeof ctx.agents?.get === "function" ? ctx.agents.get(sessionId) : undefined;
 		if (agent === undefined) throw new Error(`no live agent for session ${String(sessionId)}`);
@@ -359,21 +370,32 @@ function depsFor(ctx) {
 		},
 		async setTool(sessionId, tool, enabled) {
 			const { cwd } = agentOf(sessionId);
-			const state = await readState(path);
-			await writeState(path, withTool(state, cwd, tool, enabled));
+			// Only a real MCP tool name is switchable: the dialog renders just those,
+			// and a stray name here would hide an unrelated tool with no row to undo it.
+			if (typeof tool !== "string" || !tool.startsWith("mcp__")) throw new Error(`"${String(tool)}" is not an MCP tool name`);
+			if (!toolNamesOf(ctx, undefined).includes(tool)) throw new Error(`"${tool}" is not a tool of any connected MCP server`);
+			const state = await mutate(async () => {
+				const next = withTool(await readState(path), cwd, tool, enabled);
+				await writeState(path, next);
+				return next;
+			});
 			// One workspace's switch reaches every agent reading that workspace.
-			for (const agent of ctx.agents.list()) {
-				if (cwdOf(agent) === cwd) applyRestriction(ctx, agent, await readState(path));
-			}
+			for (const agent of agentsInWorkspace(ctx, cwd)) applyRestriction(ctx, agent, state);
 			const { agent } = agentOf(sessionId);
-			return viewOf(ctx, agent, cwd, await readState(path));
+			return viewOf(ctx, agent, cwd, state);
 		},
 		async setServer(sessionId, server, enabled) {
 			const { agent, cwd } = agentOf(sessionId);
-			await writeState(path, withServer(await readState(path), cwd, server, enabled));
-			if (enabled) await mountNamed(ctx, agent, cwd, server);
-			else await unmountServer(agent, server);
-			return viewOf(ctx, agent, cwd, await readState(path));
+			const state = await mutate(async () => {
+				const next = withServer(await readState(path), cwd, server, enabled);
+				await writeState(path, next);
+				return next;
+			});
+			for (const target of agentsInWorkspace(ctx, cwd)) {
+				if (enabled) await mountNamed(ctx, target, cwd, server);
+				else await unmountServer(target, server);
+			}
+			return viewOf(ctx, agent, cwd, state);
 		},
 		async add(sessionId, input) {
 			const { agent, cwd } = agentOf(sessionId);
@@ -385,11 +407,14 @@ function depsFor(ctx) {
 				await settings().update("mcp-manager", { servers: { [serverName]: managerEntry(entry, cwd) } });
 			} else {
 				const configPath = (await findConfigPath(cwd)) ?? join(resolve(cwd), ".mcp.json");
-				const parsed = await readConfig(configPath);
-				const declared = parsed.mcpServers !== null && typeof parsed.mcpServers === "object" ? parsed.mcpServers : {};
-				if (Object.hasOwn(declared, serverName)) throw new Error(`"${serverName}" already exists in ${configPath}`);
-				await writeConfig(configPath, { ...parsed, mcpServers: { ...declared, [serverName]: entry } });
-				await mountNamed(ctx, agent, cwd, serverName);
+				await mutate(async () => {
+					const parsed = await readConfig(configPath);
+					const declared = declaredServers(parsed);
+					if (Object.hasOwn(declared, serverName)) throw new Error(`"${serverName}" already exists in ${configPath}`);
+					await writeConfig(configPath, { ...parsed, mcpServers: { ...declared, [serverName]: entry } });
+					return {};
+				});
+				for (const target of agentsInWorkspace(ctx, cwd)) await mountNamed(ctx, target, cwd, serverName);
 			}
 			return viewOf(ctx, agent, cwd, await readState(path));
 		},
@@ -398,15 +423,19 @@ function depsFor(ctx) {
 			const configPath = await findConfigPath(cwd);
 			if (configPath === undefined) throw new Error(`no .mcp.json for ${cwd}`);
 			const parsed = await readConfig(configPath);
-			const declared = parsed.mcpServers !== null && typeof parsed.mcpServers === "object" ? parsed.mcpServers : {};
-			const entry = declared[serverName];
+			const entry = declaredServers(parsed)[serverName];
 			if (entry === undefined) throw new Error(`"${serverName}" is not declared in ${configPath}`);
-			validateEntry(serverName, entry, dirname(resolve(configPath)));
-			await settings().update("mcp-manager", { servers: { [serverName]: managerEntry(entry, dirname(resolve(configPath))) } });
-			// The global copy now serves this server; the workspace copy would double the tools.
-			await writeState(path, withServer(await readState(path), cwd, serverName, false));
-			await unmountServer(agent, serverName);
-			return viewOf(ctx, agent, cwd, await readState(path));
+			const projectDir = dirname(resolve(configPath));
+			validateEntry(serverName, entry, projectDir);
+			await settings().update("mcp-manager", { servers: { [serverName]: managerEntry(entry, projectDir) } });
+			// The global copy now serves this server; every workspace copy would double the tools.
+			const state = await mutate(async () => {
+				const next = withServer(await readState(path), cwd, serverName, false);
+				await writeState(path, next);
+				return next;
+			});
+			for (const target of agentsInWorkspace(ctx, cwd)) await unmountServer(target, serverName);
+			return viewOf(ctx, agent, cwd, state);
 		},
 	};
 }
@@ -485,7 +514,8 @@ export function apply(ctx) {
 	};
 	ctx.on("agent/created", ({ agent }) => wire(agent));
 	ctx.on("agent/disposed", ({ agent }) => {
-		records.delete(agent);
+		// The mounts and the restriction belong to the agent scope and die with it.
+		delete agent[RECORDS];
 	});
 	// A server registers its tools only after it connects, so a switched-off tool
 	// usually appears later than the agent: re-apply whenever the tool list moves.
