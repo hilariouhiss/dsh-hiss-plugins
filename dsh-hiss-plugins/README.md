@@ -162,8 +162,10 @@ colgrep command:"init" / command:"status" / command:"clear"
 - **首轮即生效**：挂载发生在 `agent/created`（宿主会 await 这个监听器）里，会话第一次对话就能看到工具；插件 reload 时也会给已经活着的 agent 补挂一次。
 - **${VAR} 展开**：`${TOKEN}` / `${TOKEN:-默认值}` 在挂载时用宿主进程环境求值，`.mcp.json` 里不必写明文密钥。
 - **失败不致命**：坏 JSON、不支持的 transport、起不来的 server 都只影响它自己，打一条 warn，会话照常开。
-- **`/mcp` 看状态**：在本项目的会话里执行 `/mcp`，逐条列出 `.mcp.json` 声明的 server 与其实时状态 —— `connected, N tools`（MCP 桥连上并同步工具后才注册工具）、`no tools`（没连上，或 server 本身不暴露工具）、`skipped`（条目映射不了）、`unusable`（宿主 MCP 桥的 schema 拒绝）；另外报告本会话里来自项目外配置的 MCP 工具总数。状态读的是当前 agent 自己的工具表，所以列的是**此刻真正可用**的工具；命令不接受参数。
+- **`/mcp` 看状态（文本报告）**：在本项目的会话里执行 `/mcp`，逐条列出 `.mcp.json` 声明的 server 与其实时状态 —— `connected, N tools`（MCP 桥连上并同步工具后才注册工具）、`no tools`（没连上，或 server 本身不暴露工具）、`skipped`（条目映射不了）、`unusable`（宿主 MCP 桥的 schema 拒绝）；另外报告本会话里来自项目外配置的 MCP 工具总数。状态读的是当前 agent 自己的工具表，所以列的是**此刻真正可用**的工具；命令不接受参数。
 - **新会话里立即显示**：DSH 的 Web 客户端在会话还没有任何 turn 时把整段对话当 blank 隐藏（只有 `turn/start` 会清 `sessionListMetadata.blank`），而 `/mcp` 只写 `command/run`/`command/done`。浏览器半因此给 `/mcp` 注册了一个非 `command` 的**伴随节点**（`hiss-mcp-command`，零尺寸），chat 视图立即激活——不必再先发一条消息。
+- **`/mcp` 弹窗（Web GUI）**：输入框里敲 `/mcp`（不带参数）会打开对话框，而不是发消息：**全局 MCP** 按服务器列出工具、每个工具一个开关（关掉后模型这一轮就看不到它）；**当前工作区** 按 `.mcp.json` 列服务器，整台开关 + 只读工具列表 + 「注册到全局」按钮；底部表单可以新增服务器并选「全局」或「当前工作区」。开关按**工作区路径**记住在 `~/.dsh/hiss-mcp.json`，换项目互不影响。带参数的 `/mcp` 仍走上面的文本报告（headless / ACP 也用它）。
+- **为什么工作区服务器不能逐工具关**：DSH 只允许在 agent scope 屏蔽**全局层**注册的工具（`tools.restrict`），项目 MCP 工具挂在 agent 自己的 scope 里，只能整台挂载/卸载。要逐工具控制，点该服务器的「注册到全局」把它写进全局配置（mcp-manager），它随后出现在全局区、可逐工具开关。
 
 `.mcp.json` 就是 Claude Code 的项目级 MCP 配置文件：
 
@@ -202,11 +204,12 @@ colgrep command:"init" / command:"status" / command:"clear"
 
 已知限制：
 
-1. **不热重载**：改完 `.mcp.json` 要开新会话（或重启 dsh）。已存在的会话仍用挂载时的配置。
+1. **手改 `.mcp.json` 不热重载**：改完文件要开新会话（或重启 dsh）；弹窗里的服务器开关与新增是即时生效的。
 2. **每个会话一套连接**：多会话同时开在同一项目会各起一份 MCP server 进程。
 3. **不支持 `sse`**：宿主 MCP 桥只支持 `stdio` 与 `streamable-http`，`sse` 条目会被跳过并告警。
 4. **只看 `.mcp.json`**：不读 `.dsh/mcp.yml`、用户层配置或 `~/.claude.json`。
-5. **`/mcp` 只列本项目声明的 server**：项目外（profile / preset 里）配置的 MCP server 只计入末尾的工具总数，不列名字 —— 宿主没有公开这些行的配置，公开的工具名也按设计不可反解出 server 名。
+5. **文本报告只列本项目声明的 server**：项目外（profile / preset 里）配置的 MCP server 只计入末尾的工具总数，不列名字。Web 弹窗会经 mcp-manager 的清单列出这些全局服务器名（它只给名字与状态，不给连接探活）。
+6. **弹窗不做连接探测**：没连上的服务器显示「未连接 / 0 个工具」，不主动 probe（probe 会真的拉起一个 server 进程）。
 
 ## 功能：git-bash
 
