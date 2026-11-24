@@ -62,6 +62,16 @@ window.__ModuleLoader__.load({
 		const LAN_HEADER_STYLE = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" };
 		const LAN_HINT_STYLE = { margin: 0, color: "var(--dsw-alias-label-tertiary)", fontSize: "13px", lineHeight: "20px" };
 		const LAN_FRAME_STYLE = { width: "100%", height: "360px", border: "none", borderRadius: "8px", background: "#fff", display: "block" };
+		/** The MCP dialog: same shell as the phone popup, one column of servers inside. */
+		const MCP_DIALOG_STYLE = { width: "520px", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 48px)", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px", padding: "16px", borderRadius: "12px", background: "var(--dsw-alias-bg-primary, #fff)", color: "var(--dsw-alias-label-primary)", boxShadow: "0 18px 48px rgba(0, 0, 0, 0.28)" };
+		const MCP_SECTION_STYLE = { display: "flex", flexDirection: "column", gap: "6px" };
+		const MCP_SERVER_STYLE = { display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", border: "0.5px solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l3))", borderRadius: "10px" };
+		const MCP_SERVER_HEADER = { display: "flex", alignItems: "center", gap: "10px" };
+		const MCP_TOOL_STYLE = { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", lineHeight: "20px" };
+		const MCP_TOOL_NAME_STYLE = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "12px", color: "var(--dsw-alias-label-secondary, var(--dsw-alias-label-tertiary))" };
+		const MCP_FIELD_STYLE = { display: "flex", flexDirection: "column", gap: "2px" };
+		const MCP_INPUT_STYLE = { font: "inherit", fontSize: "13px", padding: "4px 6px", borderRadius: "6px", border: "0.5px solid var(--dsw-alias-border-l3)", background: "transparent", color: "var(--dsw-alias-label-primary)" };
+		const MCP_FORM_STYLE = { display: "flex", flexDirection: "column", gap: "8px", paddingTop: "8px", borderTop: "0.5px solid var(--dsw-alias-border-l3)" };
 
 		/**
 		 * Copy for the management tab; the `locale/*.json` files carry the same entries, where the
@@ -101,6 +111,32 @@ window.__ModuleLoader__.load({
 			lanNotInstalled: "这个 profile 里没有 lan-access 行。",
 			lanReadOnly: "无法在这个页面启用 lan-access 行（{reason}）。",
 			lanFrameFailed: "二维码页没有响应；请先打开 /lan-access 检查原因。",
+			mcpTitle: "MCP 服务器",
+			mcpClose: "关闭",
+			mcpLoading: "正在读取 MCP 状态…",
+			mcpFailed: "操作失败：{error}",
+			mcpGlobal: "全局 MCP",
+			mcpLocal: "当前工作区 MCP",
+			mcpNoGlobal: "没有全局 MCP 服务器。",
+			mcpNoLocal: "这个工作区没有 .mcp.json 服务器。",
+			mcpNoTools: "没有工具（未连接，或服务器没有工具）。",
+			mcpConnected: "已连接",
+			mcpNotConnected: "未连接",
+			mcpToolToggle: "开关 {name}",
+			mcpServerToggle: "开关服务器 {name}",
+			mcpPromote: "注册到全局",
+			mcpAddTitle: "新增 MCP 服务器",
+			mcpAddName: "名称",
+			mcpAddScope: "作用域",
+			mcpAddGlobal: "全局（所有会话）",
+			mcpAddWorkspace: "当前工作区",
+			mcpAddType: "类型",
+			mcpAddStdio: "stdio（启动命令）",
+			mcpAddHttp: "http（URL）",
+			mcpAddCommand: "命令",
+			mcpAddArgs: "参数（空格分隔）",
+			mcpAddUrl: "URL",
+			mcpAddSubmit: "添加",
 		};
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
@@ -136,6 +172,32 @@ window.__ModuleLoader__.load({
 			lanNotInstalled: "This profile has no lan-access row.",
 			lanReadOnly: "The lan-access row cannot be enabled from here ({reason}).",
 			lanFrameFailed: "The QR page did not answer; open /lan-access to see why.",
+			mcpTitle: "MCP servers",
+			mcpClose: "Close",
+			mcpLoading: "Reading MCP state…",
+			mcpFailed: "The operation failed: {error}",
+			mcpGlobal: "Global MCP",
+			mcpLocal: "Workspace MCP",
+			mcpNoGlobal: "No global MCP servers.",
+			mcpNoLocal: "This workspace declares no .mcp.json servers.",
+			mcpNoTools: "No tools (not connected, or the server exposes none).",
+			mcpConnected: "Connected",
+			mcpNotConnected: "Not connected",
+			mcpToolToggle: "Toggle {name}",
+			mcpServerToggle: "Toggle server {name}",
+			mcpPromote: "Register globally",
+			mcpAddTitle: "Add an MCP server",
+			mcpAddName: "Name",
+			mcpAddScope: "Scope",
+			mcpAddGlobal: "Global (every session)",
+			mcpAddWorkspace: "This workspace",
+			mcpAddType: "Type",
+			mcpAddStdio: "stdio (a command)",
+			mcpAddHttp: "http (a URL)",
+			mcpAddCommand: "Command",
+			mcpAddArgs: "Arguments (space separated)",
+			mcpAddUrl: "URL",
+			mcpAddSubmit: "Add",
 		};
 
 		/** Read one thrown value as text. */
@@ -531,6 +593,231 @@ window.__ModuleLoader__.load({
 			});
 		}
 
+		/** Values the `/mcp` dialog needs from apply(): its store, the bound lookup and the host call. */
+		const mcpUi = {
+			store: null,
+			t: (key) => key,
+			post: async () => ({}),
+		};
+
+		/**
+		 * Dialog state shared by the decorator that opens it and the overlay that draws it.
+		 * @returns a tiny external store holding the open dialog's session.
+		 */
+		function createDialogStore() {
+			let current = { open: false, sessionId: "" };
+			const listeners = new Set();
+			const set = (next) => {
+				if (next.open === current.open && next.sessionId === current.sessionId) return;
+				current = next;
+				for (const listener of [...listeners]) listener();
+			};
+			return {
+				get: () => current,
+				open(sessionId) {
+					set({ open: true, sessionId });
+				},
+				close() {
+					set({ open: false, sessionId: current.sessionId });
+				},
+				listen(listener) {
+					listeners.add(listener);
+					return () => {
+						listeners.delete(listener);
+					};
+				},
+			};
+		}
+
+		/** Subscribe a component to the dialog store. */
+		function useDialog(store) {
+			const [dialog, setDialog] = React.useState(store.get());
+			React.useEffect(() => store.listen(() => setDialog(store.get())), []);
+			return dialog;
+		}
+
+		/** The empty add-server form. */
+		function emptyForm() {
+			return { name: "", scope: "workspace", type: "stdio", command: "", args: "", url: "" };
+		}
+
+		/**
+		 * One server block: its switch or connection state, its tools, and — for a workspace
+		 * server — the one-click promotion into the global list.
+		 * @param server - one entry of the dialog view.
+		 * @param side - "global" or "local".
+		 * @param handlers - the dialog's bound actions.
+		 * @returns the block element.
+		 */
+		function serverBlock(server, side, handlers) {
+			const { t, onTool, onServer, onPromote } = handlers;
+			const connected = server.tools.length > 0;
+			const head = [jsx("strong", { key: "name", children: server.name })];
+			if (side === "local") {
+				head.push(jsx("label", { key: "switch", style: SWITCH_STYLE, children: [
+					jsx("input", {
+						type: "checkbox",
+						checked: server.enabled,
+						"aria-label": t("mcpServerToggle", { name: server.name }),
+						onChange: (event) => onServer(server.name, event.currentTarget.checked),
+					}),
+					jsx("span", { children: server.enabled ? t("enabledTag") : t("disabledTag") }),
+				] }));
+				head.push(jsx("button", {
+					key: "promote",
+					type: "button",
+					style: BUTTON_STYLE,
+					onClick: () => onPromote(server.name),
+					children: t("mcpPromote"),
+				}));
+			} else {
+				head.push(jsx("span", { key: "status", style: DESCRIPTION_STYLE, children: connected ? t("mcpConnected") : t("mcpNotConnected") }));
+			}
+			const rows = server.tools.length === 0
+				? [jsx("p", { key: "empty", style: DESCRIPTION_STYLE, children: t("mcpNoTools") })]
+				: [jsx("ul", { key: "tools", style: LIST_STYLE, children: server.tools.map((tool) => jsxs("li", {
+					style: MCP_TOOL_STYLE,
+					children: [
+						side === "global" ? jsx("input", {
+							type: "checkbox",
+							checked: tool.enabled,
+							"aria-label": t("mcpToolToggle", { name: tool.name }),
+							onChange: (event) => onTool(tool.name, event.currentTarget.checked),
+						}) : null,
+						jsx("code", { style: MCP_TOOL_NAME_STYLE, children: tool.name }),
+					],
+				}, tool.name)) })];
+			return jsxs("li", { style: MCP_SERVER_STYLE, children: [
+				jsx("div", { style: MCP_SERVER_HEADER, children: head }),
+				...rows,
+			] }, server.name);
+		}
+
+		/** The `/mcp` dialog: both sections, the switches, and the add-server form. */
+		function McpDialog() {
+			const { store, t, post } = mcpUi;
+			const dialog = useDialog(store);
+			const [state, setState] = React.useState({ kind: "idle" });
+			const [notice, setNotice] = React.useState(null);
+			const [form, setForm] = React.useState(emptyForm());
+			React.useEffect(() => {
+				if (!dialog.open) return undefined;
+				let current = true;
+				setState({ kind: "loading" });
+				Promise.resolve().then(() => post({ action: "status", sessionId: dialog.sessionId })).then((value) => {
+					if (current) setState({ kind: "ready", view: value });
+				}, (error) => {
+					if (current) setState({ kind: "error", message: messageOf(error) });
+				});
+				return () => {
+					current = false;
+				};
+			}, [dialog.open, dialog.sessionId]);
+			React.useEffect(() => {
+				if (!dialog.open) return undefined;
+				const onKey = (event) => {
+					if (event.key === "Escape") store.close();
+				};
+				globalThis.window?.addEventListener?.("keydown", onKey);
+				return () => globalThis.window?.removeEventListener?.("keydown", onKey);
+			}, [dialog.open, store]);
+			if (!dialog.open) return null;
+			/**
+			 * Run one dialog request and re-render from the answer it returns.
+			 * @param body - the request without its session id.
+			 * @returns whether the host accepted it.
+			 */
+			const run = (body) => {
+				setNotice(null);
+				return Promise.resolve().then(() => post({ ...body, sessionId: dialog.sessionId })).then((value) => {
+					setState({ kind: "ready", view: value });
+					return true;
+				}, (error) => {
+					setNotice(messageOf(error));
+					return false;
+				});
+			};
+			const handlers = {
+				t,
+				onTool: (tool, enabled) => run({ action: "set-tool", tool, enabled }),
+				onServer: (server, enabled) => run({ action: "set-server", server, enabled }),
+				onPromote: (server) => run({ action: "promote", server }),
+			};
+			const field = (label, key, placeholder) => jsxs("label", { style: MCP_FIELD_STYLE, children: [
+				jsx("span", { style: DESCRIPTION_STYLE, children: label }),
+				jsx("input", {
+					type: "text",
+					value: form[key],
+					placeholder,
+					style: MCP_INPUT_STYLE,
+					onChange: (event) => {
+						const value = event.currentTarget.value;
+						setForm((old) => ({ ...old, [key]: value }));
+					},
+				}),
+			] });
+			const view = state.kind === "ready" ? state.view : undefined;
+			const submit = () => {
+				run({
+					action: "add-server",
+					server: { name: form.name, scope: form.scope, type: form.type, command: form.command, args: form.args, url: form.url },
+				}).then((accepted) => {
+					if (accepted) setForm(emptyForm());
+				});
+			};
+			return jsx("div", {
+				role: "presentation",
+				style: LAN_OVERLAY_STYLE,
+				onClick: () => store.close(),
+				children: jsxs("div", {
+					role: "dialog",
+					"aria-modal": "true",
+					"aria-label": t("mcpTitle"),
+					style: MCP_DIALOG_STYLE,
+					onClick: (event) => event.stopPropagation(),
+					children: [
+						jsxs("div", { style: LAN_HEADER_STYLE, children: [
+							jsx("strong", { children: t("mcpTitle") }),
+							jsx("button", { type: "button", style: BUTTON_STYLE, onClick: () => store.close(), children: t("mcpClose") }),
+						] }),
+						state.kind === "loading" ? jsx("p", { role: "status", style: DESCRIPTION_STYLE, children: t("mcpLoading") }) : null,
+						state.kind === "error" ? jsx("p", { role: "alert", style: DESCRIPTION_STYLE, children: t("mcpFailed", { error: state.message }) }) : null,
+						view === undefined ? null : jsxs("div", { style: MCP_SECTION_STYLE, children: [
+							jsx("strong", { children: t("mcpGlobal") }),
+							view.global.length === 0 ? jsx("p", { style: DESCRIPTION_STYLE, children: t("mcpNoGlobal") }) : jsx("ul", { style: LIST_STYLE, children: view.global.map((server) => serverBlock(server, "global", handlers)) }),
+						] }),
+						view === undefined ? null : jsxs("div", { style: MCP_SECTION_STYLE, children: [
+							jsx("strong", { children: t("mcpLocal") }),
+							view.local.length === 0 ? jsx("p", { style: DESCRIPTION_STYLE, children: t("mcpNoLocal") }) : jsx("ul", { style: LIST_STYLE, children: view.local.map((server) => serverBlock(server, "local", handlers)) }),
+						] }),
+						jsxs("div", { style: MCP_FORM_STYLE, children: [
+							jsx("strong", { children: t("mcpAddTitle") }),
+							field(t("mcpAddName"), "name", "my-server"),
+							jsxs("label", { style: MCP_FIELD_STYLE, children: [
+								jsx("span", { style: DESCRIPTION_STYLE, children: t("mcpAddScope") }),
+								jsxs("select", { value: form.scope, style: MCP_INPUT_STYLE, onChange: (event) => { const value = event.currentTarget.value; setForm((old) => ({ ...old, scope: value })); }, children: [
+									jsx("option", { value: "workspace", children: t("mcpAddWorkspace") }),
+									jsx("option", { value: "global", children: t("mcpAddGlobal") }),
+								] }),
+							] }),
+							jsxs("label", { style: MCP_FIELD_STYLE, children: [
+								jsx("span", { style: DESCRIPTION_STYLE, children: t("mcpAddType") }),
+								jsxs("select", { value: form.type, style: MCP_INPUT_STYLE, onChange: (event) => { const value = event.currentTarget.value; setForm((old) => ({ ...old, type: value })); }, children: [
+									jsx("option", { value: "stdio", children: t("mcpAddStdio") }),
+									jsx("option", { value: "http", children: t("mcpAddHttp") }),
+								] }),
+							] }),
+							form.type === "http" ? field(t("mcpAddUrl"), "url", "https://example.com/mcp") : null,
+							form.type === "http" ? null : field(t("mcpAddCommand"), "command", "npx"),
+							form.type === "http" ? null : field(t("mcpAddArgs"), "args", "-y @modelcontextprotocol/server-filesystem ."),
+							jsx("button", { type: "button", style: BUTTON_STYLE, onClick: submit, children: t("mcpAddSubmit") }),
+						] }),
+						notice === null ? null : jsx("p", { role: "alert", style: DESCRIPTION_STYLE, children: t("mcpFailed", { error: notice }) }),
+					],
+				}),
+			});
+		}
+
 		/** Host commands whose run this browser half projects into the chat view. */
 		const PROJECTED_COMMANDS = new Set(["mcp", "lan"]);
 		/**
@@ -668,6 +955,42 @@ window.__ModuleLoader__.load({
 			lanUi.t = t;
 			lanUi.ensureEnabled = ensureLanEnabled;
 			lanUi.probe = probeLanPage;
+			mcpUi.store = createDialogStore();
+			mcpUi.t = t;
+			/**
+			 * Call the host's dialog route: same origin, one JSON answer, failures as text.
+			 * @param body - the request without its session id.
+			 * @returns the answer's `value`.
+			 */
+			mcpUi.post = async (body) => {
+				const response = await fetch("/hiss-mcp/action", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify(body),
+				});
+				let answer = null;
+				try {
+					answer = await response.json();
+				} catch {
+					answer = null;
+				}
+				if (answer !== null && answer.ok === false) throw new Error(answer.error?.message ?? "the host refused the request");
+				if (!response.ok) throw new Error(answer?.error?.message ?? `HTTP ${String(response.status)}`);
+				return answer?.value;
+			};
+			// The dialog replaces the chat text report a bare /mcp used to log; an argued
+			// /mcp still reaches the host command, which answers with its usage line.
+			// Optional: a host without the command surface keeps the tab and the phone popup.
+			if (typeof ctx.inject === "function") ctx.inject(["commandUi"], (uiCtx) => uiCtx.commandUi.decorate({
+				name: "mcp",
+				available: () => true,
+				ui: {
+					kind: "action",
+					run: (session) => {
+						mcpUi.store.open(session.sessionId);
+					},
+				},
+			}));
 			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
 				name: "sidebar.footer.action",
 				id: "lan-access",
@@ -675,12 +998,21 @@ window.__ModuleLoader__.load({
 				locale: NS,
 				label: () => t("lanButton"),
 			}, LanAccessButton));
-			ctx.slots.inject("shell.overlay", () => ctx.slots.register({
-				name: "shell.overlay",
-				id: "lan-access.popup",
-				order: 900,
-				locale: NS,
-			}, LanAccessPopup));
+			ctx.slots.inject("shell.overlay", () => {
+				const popup = ctx.slots.register({
+					name: "shell.overlay",
+					id: "lan-access.popup",
+					order: 900,
+					locale: NS,
+				}, LanAccessPopup);
+				ctx.slots.register({
+					name: "shell.overlay",
+					id: "mcp.dialog",
+					order: 901,
+					locale: NS,
+				}, McpDialog);
+				return popup;
+			});
 		}
 
 		exports.apply = apply;

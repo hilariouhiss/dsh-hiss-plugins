@@ -100,7 +100,7 @@ function changeOk(application = "applied", error = undefined) {
 function applyBundle(options = {}) {
 	const list = options.list ?? (() => listOk());
 	const setEnabled = options.setEnabled ?? (() => changeOk());
-	const calls = { effects: [], injected: [], registered: [], definitions: [], toggled: [], listed: 0, dictionaries: null };
+	const calls = { effects: [], injected: [], optionalInjected: [], registered: [], definitions: [], toggled: [], listed: 0, dictionaries: null, decorations: [] };
 	const manager = {
 		async listPlugins() {
 			calls.listed += 1;
@@ -153,6 +153,16 @@ function applyBundle(options = {}) {
 			},
 		},
 		remote: { pluginManager: manager },
+		inject(services, callback) {
+			calls.optionalInjected.push(services.join(","));
+			return callback(ctx);
+		},
+		commandUi: {
+			decorate(decoration) {
+				calls.decorations.push(decoration);
+				return () => {};
+			},
+		},
 		logger: { error() {}, warn() {}, info() {} },
 	};
 	const exported = loadBundle();
@@ -265,7 +275,7 @@ test("apply registers the dictionaries, the chat projection, the tab and the pho
 	assert.deepEqual(calls.effects, ["hiss-plugins: dictionaries"]);
 	assert.equal(calls.dictionaries.namespace, NS);
 	assert.deepEqual(calls.injected, ["conversation.chat.node", "plugins.tab", "sidebar.footer.action", "shell.overlay"]);
-	assert.equal(calls.registered.length, 4);
+	assert.equal(calls.registered.length, 5);
 	assert.equal(calls.definitions.length, 1);
 	const { registration, component } = tabOf(calls);
 	assert.equal(registration.name, "plugins.tab");
@@ -276,6 +286,53 @@ test("apply registers the dictionaries, the chat projection, the tab and the pho
 	assert.equal(registration.label(), "dsh-hiss-plugins");
 	assert.equal(typeof registration.inject, "function");
 	assert.equal(typeof component, "function");
+});
+
+test("a bare /mcp is decorated into a client dialog", () => {
+	const { calls } = applyBundle();
+	assert.deepEqual(calls.optionalInjected, ["commandUi"], "the decoration needs the command surface");
+	assert.equal(calls.decorations.length, 1);
+	const [decoration] = calls.decorations;
+	assert.equal(decoration.name, "mcp");
+	assert.equal(decoration.ui.kind, "action");
+	assert.equal(typeof decoration.ui.run, "function");
+	assert.equal(decoration.available({ sessionId: "s1" }), true);
+	assert.equal(typeof decoration.ui.run({ sessionId: "s1" }), "undefined", "opening the dialog submits nothing");
+});
+
+test("the dialog lists both sections and reports a server with no tools", async () => {
+	const realFetch = globalThis.fetch;
+	globalThis.fetch = async () => ({
+		ok: true,
+		async json() {
+			return { ok: true, value: {
+				cwd: "proj",
+				global: [{ name: "cg", enabled: true, tools: [] }],
+				local: [{ name: "matlab", enabled: true, tools: [{ name: "mcp__matlab__run", enabled: true }] }],
+			} };
+		},
+	});
+	try {
+		const { calls } = applyBundle();
+		calls.decorations[0].ui.run({ sessionId: "s1" });
+		const dialog = calls.registered.find((entry) => entry.registration.id === "mcp.dialog");
+		const tree = await mountComponent(dialog.component, {}).settle();
+		const text = textOf(tree);
+		assert.ok(text.includes("Global MCP"), "the global section is drawn");
+		assert.ok(text.includes("Workspace MCP"), "the workspace section is drawn");
+		assert.ok(text.includes("No tools"), "a server without tools says so");
+		assert.ok(text.includes("mcp__matlab__run"), "a workspace server lists its tools read-only");
+		const labels = flatten(tree).filter((node) => node.type === "input" && node.props["aria-label"] !== undefined).map((node) => node.props["aria-label"]);
+		assert.deepEqual(labels, ["Toggle server matlab"], "only the workspace server has a switch");
+	} finally {
+		globalThis.fetch = realFetch;
+	}
+});
+
+test("the MCP dialog occupies the shell overlay beside the phone popup", () => {
+	const { calls } = applyBundle();
+	const ids = calls.registered.filter((entry) => entry.registration.name === "shell.overlay").map((entry) => entry.registration.id).sort();
+	assert.deepEqual(ids, ["lan-access.popup", "mcp.dialog"]);
 });
 
 test("the /mcp and /lan runs project a chat node, so a never-messaged session renders the transcript", () => {

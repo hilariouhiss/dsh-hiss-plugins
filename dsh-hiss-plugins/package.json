@@ -80,7 +80,8 @@
 			"platform": "web",
 			"inject": [
 				"@deepseek-ai/dsh-api-remotes",
-				"@deepseek-ai/dsh-client-modules"
+				"@deepseek-ai/dsh-client-modules",
+				"@deepseek-ai/dsh-client-ui-commands"
 			]
 		}
 	},
