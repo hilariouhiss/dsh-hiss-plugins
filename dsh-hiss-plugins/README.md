@@ -410,8 +410,8 @@ test/                 node:test：<feature>/ 九个目录 + manifest / patch / c
 ## 发布（给维护者）
 
 ```powershell
-git tag dsh-hiss-plugins@1.4.0        # 必须与本目录 package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.4.0
+git tag dsh-hiss-plugins@1.5.0        # 必须与本目录 package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.5.0
 ```
 
 CI（`.github/workflows/publish.yml`，Windows runner）解析 tag、跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token）** 发布；包内 `prepublishOnly` 会再跑一次 `npm test`。手工发布：`npm publish`（`publishConfig.access` 已设为 public），发版前先 `node ../scripts/smoke-profile.mjs` 走一遍真实安装 + 真启动。发布新版本前记得递增 `package.json` 的 `version`。
