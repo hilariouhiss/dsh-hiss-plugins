@@ -36,7 +36,6 @@ window.__ModuleLoader__.load({
 			{ key: "ponytail", moduleName: `${PACKAGE_ID}/ponytail`, description: "featurePonytailDescription" },
 			{ key: "init", moduleName: `${PACKAGE_ID}/init`, description: "featureInitDescription" },
 			{ key: "fix", moduleName: `${PACKAGE_ID}/fix`, description: "featureFixDescription" },
-			{ key: "lan-access", moduleName: `${PACKAGE_ID}/lan-access`, description: "featureLanAccessDescription" },
 		];
 		/** The same features keyed by the name a card shows. */
 		const FEATURE_BY_KEY = new Map(FEATURES.map((feature) => [feature.key, feature]));
@@ -53,16 +52,10 @@ window.__ModuleLoader__.load({
 		const NOTICE_STYLE = { margin: 0, color: "var(--dsw-alias-label-secondary, var(--dsw-alias-label-tertiary))", fontSize: "13px", lineHeight: "20px" };
 		const REASON_STYLE = { color: "var(--dsw-alias-label-tertiary)", fontSize: "12px", lineHeight: "18px", maxWidth: "220px" };
 		const BUTTON_STYLE = { border: "0.5px solid var(--dsw-alias-border-l3)", borderRadius: "6px", color: "var(--dsw-alias-label-primary)", font: "inherit", cursor: "pointer", background: "none", padding: "4px 10px" };
-		/** Sidebar-foot action: icon in the rail, icon + label in a wide column. */
-		const LAN_BUTTON_STYLE = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", height: "32px", padding: "0 8px", border: "none", borderRadius: "8px", background: "transparent", color: "var(--dsw-alias-label-secondary, var(--dsw-alias-label-tertiary))", font: "inherit", fontSize: "13px", cursor: "pointer", whiteSpace: "nowrap" };
-		const LAN_RAIL_STYLE = { width: "32px", padding: "0" };
-		/** Frame-wide click-catcher for the phone-link popup. */
-		const LAN_OVERLAY_STYLE = { position: "fixed", inset: "0", zIndex: 2147483000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0, 0, 0, 0.45)", pointerEvents: "auto" };
-		const LAN_DIALOG_STYLE = { width: "380px", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 48px)", overflow: "auto", display: "flex", flexDirection: "column", gap: "12px", padding: "16px", borderRadius: "12px", background: "var(--dsw-alias-bg-primary, #fff)", color: "var(--dsw-alias-label-primary)", boxShadow: "0 18px 48px rgba(0, 0, 0, 0.28)" };
-		const LAN_HEADER_STYLE = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" };
-		const LAN_HINT_STYLE = { margin: 0, color: "var(--dsw-alias-label-tertiary)", fontSize: "13px", lineHeight: "20px" };
-		const LAN_FRAME_STYLE = { width: "100%", height: "360px", border: "none", borderRadius: "8px", background: "#fff", display: "block" };
-		/** The MCP dialog: same shell as the phone popup, one column of servers inside. */
+		/** Frame-wide click-catcher for the MCP dialog. */
+		const OVERLAY_STYLE = { position: "fixed", inset: "0", zIndex: 2147483000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0, 0, 0, 0.45)", pointerEvents: "auto" };
+		const DIALOG_HEADER_STYLE = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" };
+		/** The MCP dialog: overlay, header and one column of servers inside. */
 		const MCP_DIALOG_STYLE = { width: "880px", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 48px)", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px", padding: "16px", borderRadius: "12px", background: "var(--dsw-alias-bg-primary, #fff)", color: "var(--dsw-alias-label-primary)", boxShadow: "0 18px 48px rgba(0, 0, 0, 0.28)" };
 		/** Two columns: global on the left, the workspace on the right. */
 		const MCP_COLUMNS_STYLE = { display: "flex", gap: "16px", alignItems: "flex-start" };
@@ -103,18 +96,6 @@ window.__ModuleLoader__.load({
 			featurePonytailDescription: "ponytail 采纳提示与 /ponytail 等级切换",
 			featureInitDescription: "生成或更新项目 AGENTS.md（/init）",
 			featureFixDescription: "先查根因并报告，确认后再修复（/fix）",
-			featureLanAccessDescription: "让手机在同一局域网打开本 GUI（/lan 给出带 token 的地址）",
-			lanButton: "手机连接",
-			lanButtonAria: "用手机通过局域网连接：打开二维码",
-			lanTitle: "手机扫码连接",
-			lanClose: "关闭",
-			lanLoading: "正在开启局域网访问…",
-			lanHint: "手机与电脑连同一个网络，用相机扫码打开；打开一次后 30 天内免 token。",
-			lanRestart: "已开启局域网访问，但需要重启 DSH 后二维码才可用。",
-			lanFailed: "无法开启局域网访问：{error}",
-			lanNotInstalled: "这个 profile 里没有 lan-access 行。",
-			lanReadOnly: "无法在这个页面启用 lan-access 行（{reason}）。",
-			lanFrameFailed: "二维码页没有响应；请先打开 /lan-access 检查原因。",
 			mcpTitle: "MCP 服务器",
 			mcpClose: "关闭",
 			mcpLoading: "正在读取 MCP 状态…",
@@ -170,18 +151,6 @@ window.__ModuleLoader__.load({
 			featurePonytailDescription: "ponytail adoption hint and /ponytail level switching",
 			featureInitDescription: "generates or updates the project's AGENTS.md (/init)",
 			featureFixDescription: "diagnoses the root cause and waits for confirmation before fixing (/fix)",
-			featureLanAccessDescription: "opens this GUI from a phone on the same network (/lan prints the tokenized URL)",
-			lanButton: "Phone link",
-			lanButtonAria: "Connect a phone over the LAN: show the QR code",
-			lanTitle: "Scan to connect a phone",
-			lanClose: "Close",
-			lanLoading: "Enabling LAN access…",
-			lanHint: "Keep the phone on the same network and scan with the camera; after one open the token is not needed for 30 days.",
-			lanRestart: "LAN access is enabled, but DSH must restart before the QR code is available.",
-			lanFailed: "Could not enable LAN access: {error}",
-			lanNotInstalled: "This profile has no lan-access row.",
-			lanReadOnly: "The lan-access row cannot be enabled from here ({reason}).",
-			lanFrameFailed: "The QR page did not answer; open /lan-access to see why.",
 			mcpTitle: "MCP servers",
 			mcpClose: "Close",
 			mcpLoading: "Reading MCP state…",
@@ -436,179 +405,6 @@ window.__ModuleLoader__.load({
 			});
 		}
 
-		/**
-		 * Values apply() hands the two slot components. They live at module scope because the
-		 * sidebar action and the overlay host are separate slot occupants with no shared props.
-		 */
-		const lanUi = {
-			store: null,
-			t: (key) => key,
-			ensureEnabled: async () => "enabled",
-			probe: async () => ({ ok: false, message: "" }),
-		};
-
-		/**
-		 * Popup state shared by the sidebar action and its overlay host: the two live in
-		 * different slots, so neither can own React state for the other.
-		 * @returns a tiny external store.
-		 */
-		function createPopupStore() {
-			let open = false;
-			const listeners = new Set();
-			return {
-				get: () => open,
-				set(value) {
-					const next = value === true;
-					if (next === open) return;
-					open = next;
-					for (const listener of [...listeners]) listener();
-				},
-				listen(listener) {
-					listeners.add(listener);
-					return () => {
-						listeners.delete(listener);
-					};
-				},
-			};
-		}
-
-		/**
-		 * Subscribe a component to the popup store.
-		 * @param store - the shared store.
-		 * @returns whether the popup is open.
-		 */
-		function usePopupOpen(store) {
-			const [open, setOpen] = React.useState(store.get());
-			React.useEffect(() => store.listen(() => setOpen(store.get())), []);
-			return open;
-		}
-
-		/** A phone outline for the sidebar action. */
-		function PhoneIcon() {
-			return jsx("svg", {
-				width: 16,
-				height: 16,
-				viewBox: "0 0 24 24",
-				fill: "none",
-				stroke: "currentColor",
-				strokeWidth: 1.8,
-				strokeLinecap: "round",
-				strokeLinejoin: "round",
-				"aria-hidden": "true",
-				children: [
-					jsx("rect", { x: 6, y: 2, width: 12, height: 20, rx: 3, key: "body" }),
-					jsx("path", { d: "M11 18h2", key: "home" }),
-				],
-			});
-		}
-
-		/**
-		 * The sidebar-foot action that opens the phone-link popup.
-		 * @param props - `store`, the bound `t`, and the owner's column width state.
-		 */
-		function LanAccessButton({ wide }) {
-			const { store, t } = lanUi;
-			const open = usePopupOpen(store);
-			return jsx("button", {
-				type: "button",
-				title: t("lanButton"),
-				"aria-label": t("lanButtonAria"),
-				"aria-expanded": open,
-				style: wide ? LAN_BUTTON_STYLE : { ...LAN_BUTTON_STYLE, ...LAN_RAIL_STYLE },
-				onClick: () => store.set(true),
-				children: [
-					jsx(PhoneIcon, { key: "icon" }),
-					wide ? jsx("span", {
-						key: "label",
-						children: t("lanButton")
-					}) : null
-				]
-			});
-		}
-
-		/**
-		 * The frame-wide popup: enabling the row, waiting for the page, and showing the QR.
-		 * @param props - `store`, the bound `t`, `ensureEnabled`, and `probe`.
-		 */
-		function LanAccessPopup() {
-			const { store, t, ensureEnabled, probe } = lanUi;
-			const open = usePopupOpen(store);
-			const [state, setState] = React.useState({ status: "idle" });
-			const [frameHeight, setFrameHeight] = React.useState(360);
-			React.useEffect(() => {
-				if (!open) return undefined;
-				let current = true;
-				setState({ status: "loading" });
-				Promise.resolve().then(ensureEnabled).then((outcome) => {
-					if (!current) return undefined;
-					if (outcome === "restart-required") {
-						setState({ status: "restart" });
-						return undefined;
-					}
-					return probe().then((answer) => {
-						if (!current) return;
-						setState(answer.ok ? { status: "ready", src: answer.url } : { status: "error", message: answer.message });
-					});
-				}).catch((error) => {
-					if (current) setState({ status: "error", message: messageOf(error) });
-				});
-				return () => {
-					current = false;
-				};
-			}, [open, ensureEnabled, probe]);
-			React.useEffect(() => {
-				if (!open) return undefined;
-				const onKey = (event) => {
-					if (event.key === "Escape") store.set(false);
-				};
-				globalThis.window?.addEventListener?.("keydown", onKey);
-				return () => globalThis.window?.removeEventListener?.("keydown", onKey);
-			}, [open, store]);
-			if (!open) return null;
-			return jsx("div", {
-				role: "presentation",
-				style: LAN_OVERLAY_STYLE,
-				onClick: () => store.set(false),
-				children: jsxs("div", {
-					role: "dialog",
-					"aria-modal": "true",
-					"aria-label": t("lanTitle"),
-					style: LAN_DIALOG_STYLE,
-					onClick: (event) => event.stopPropagation(),
-					children: [
-						jsxs("div", {
-							style: LAN_HEADER_STYLE,
-							children: [jsx("strong", { children: t("lanTitle") }), jsx("button", {
-								type: "button",
-								style: BUTTON_STYLE,
-								onClick: () => store.set(false),
-								children: t("lanClose")
-							})]
-						}),
-						state.status === "loading" ? jsx("p", { role: "status", style: LAN_HINT_STYLE, children: t("lanLoading") }) : null,
-						state.status === "restart" ? jsx("p", { role: "alert", style: LAN_HINT_STYLE, children: t("lanRestart") }) : null,
-						state.status === "error" ? jsx("p", { role: "alert", style: LAN_HINT_STYLE, children: t("lanFailed", { error: state.message }) }) : null,
-						state.status === "ready" ? jsx("iframe", {
-							title: t("lanTitle"),
-							src: state.src,
-							style: { ...LAN_FRAME_STYLE, height: `${String(frameHeight)}px` },
-							onLoad: (event) => {
-								// Same origin, so the document height is readable: the frame is cut
-								// to its content and the dialog never grows a second scrollbar.
-								try {
-									const measured = event?.currentTarget?.contentDocument?.documentElement?.scrollHeight;
-									if (typeof measured === "number" && measured > 0) setFrameHeight(Math.max(240, Math.min(measured + 2, 560)));
-								} catch {
-									// A cross-origin document keeps the default height.
-								}
-							}
-						}) : null,
-						jsx("p", { style: LAN_HINT_STYLE, children: t("lanHint") })
-					]
-				})
-			});
-		}
-
 		/** Values the `/mcp` dialog needs from apply(): its store, the bound lookup and the host call. */
 		const mcpUi = {
 			store: null,
@@ -800,7 +596,7 @@ window.__ModuleLoader__.load({
 			] });
 			return jsx("div", {
 				role: "presentation",
-				style: LAN_OVERLAY_STYLE,
+				style: OVERLAY_STYLE,
 				onClick: () => store.close(),
 				children: jsxs("div", {
 					role: "dialog",
@@ -809,7 +605,7 @@ window.__ModuleLoader__.load({
 					style: MCP_DIALOG_STYLE,
 					onClick: (event) => event.stopPropagation(),
 					children: [
-						jsxs("div", { style: LAN_HEADER_STYLE, children: [
+						jsxs("div", { style: DIALOG_HEADER_STYLE, children: [
 							jsx("strong", { children: t("mcpTitle") }),
 							jsxs("span", { style: MCP_ACTIONS_STYLE, children: [
 								jsx("button", { type: "button", style: BUTTON_STYLE, "aria-label": t("mcpRefresh"), onClick: () => run({ action: "status" }), children: t("mcpRefresh") }),
@@ -854,10 +650,10 @@ window.__ModuleLoader__.load({
 			});
 		}
 
-		/** Host commands whose run this browser half projects into the chat view. */
-		const PROJECTED_COMMANDS = new Set(["mcp", "lan"]);
+		/** The host command whose run this browser half projects into the chat view. */
+		const PROJECTED_COMMAND = "mcp";
 		/**
-		 * Chat node kind of the `/mcp` and `/lan` projection.
+		 * Chat node kind of the `/mcp` projection.
 		 *
 		 * DSH hides the whole transcript while a session has no turn (the chat view counts only
 		 * non-command nodes as activity, and only a turn clears the session's blank flag), so in a
@@ -869,14 +665,14 @@ window.__ModuleLoader__.load({
 		const MCP_NODE_KIND = "hiss-mcp-command";
 
 		/**
-		 * Project one `/mcp` or `/lan` run as an empty chat node.
+		 * Project one `/mcp` run as an empty chat node.
 		 * Only `command/run` is claimed: `command/done` still renders through the generic command card,
 		 * and every other command is untouched.
 		 */
 		const mcpCommandDefinition = {
 			kind: MCP_NODE_KIND,
 			target: "chat",
-			match: (event) => event.type === "command/run" && PROJECTED_COMMANDS.has(event.data.name)
+			match: (event) => event.type === "command/run" && event.data.name === PROJECTED_COMMAND
 				? { id: String(event.data.commandId), role: "start" }
 				: null,
 			start: (_context, match) => ({ seq: match.event.seq, commandId: match.event.data.commandId }),
@@ -944,37 +740,6 @@ window.__ModuleLoader__.load({
 				if (result.application === "failed") throw refusalError(t, result.error?.code, result.error?.diagnostic);
 				return result.application;
 			};
-			lanUi.store = createPopupStore();
-			/**
-			 * Turn the lan-access row on so the popup has something to show.
-			 * @returns "enabled" when the listener is being mounted now, "restart-required" when only a restart lands it.
-			 */
-			const ensureLanEnabled = async () => {
-				const rows = await list();
-				const row = rows.find((candidate) => candidate.key === "lan-access");
-				if (row === undefined) throw new Error(t("lanNotInstalled"));
-				if (row.enabled) return "enabled";
-				if (!row.toggleable) throw new Error(t("lanReadOnly", { reason: row.reason ?? "unknown" }));
-				return (await setEnabled(row.entryId, true)) === "restart-required" ? "restart-required" : "enabled";
-			};
-			/**
-			 * Wait for the host's QR page: a just-enabled row registers its route asynchronously.
-			 * @returns whether the page answers, and the frame URL.
-			 */
-			const probeLanPage = async () => {
-				const url = "/lan-access?embed=1";
-				for (let attempt = 0; attempt < 12; attempt += 1) {
-					try {
-						const response = await fetch(url, { method: "HEAD", cache: "no-store" });
-						if (response.ok) return { ok: true, url };
-						if (response.status === 401 || response.status === 403) break;
-					} catch {
-						// The route does not exist yet (404) or the browser is briefly offline.
-					}
-					await new Promise((resolve) => setTimeout(resolve, 250));
-				}
-				return { ok: false, message: t("lanFrameFailed", { url: "/lan-access" }) };
-			};
 			ctx.slots.inject("plugins.tab", () => ctx.slots.register({
 				name: "plugins.tab",
 				id: "dsh-hiss-plugins",
@@ -988,9 +753,6 @@ window.__ModuleLoader__.load({
 					features: FEATURES.map((feature) => feature.key)
 				})
 			}, HissPluginsTab));
-			lanUi.t = t;
-			lanUi.ensureEnabled = ensureLanEnabled;
-			lanUi.probe = probeLanPage;
 			mcpUi.store = createDialogStore();
 			mcpUi.t = t;
 			/**
@@ -1016,7 +778,7 @@ window.__ModuleLoader__.load({
 			};
 			// The dialog replaces the chat text report a bare /mcp used to log; an argued
 			// /mcp still reaches the host command, which answers with its usage line.
-			// Optional: a host without the command surface keeps the tab and the phone popup.
+			// Optional: a host without the command surface keeps the tab.
 			if (typeof ctx.inject === "function") ctx.inject(["commandUi"], (uiCtx) => uiCtx.commandUi.decorate({
 				name: "mcp",
 				available: () => true,
@@ -1027,28 +789,12 @@ window.__ModuleLoader__.load({
 					},
 				},
 			}));
-			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
-				name: "sidebar.footer.action",
-				id: "lan-access",
-				order: 10,
+			ctx.slots.inject("shell.overlay", () => ctx.slots.register({
+				name: "shell.overlay",
+				id: "mcp.dialog",
+				order: 901,
 				locale: NS,
-				label: () => t("lanButton"),
-			}, LanAccessButton));
-			ctx.slots.inject("shell.overlay", () => {
-				const popup = ctx.slots.register({
-					name: "shell.overlay",
-					id: "lan-access.popup",
-					order: 900,
-					locale: NS,
-				}, LanAccessPopup);
-				ctx.slots.register({
-					name: "shell.overlay",
-					id: "mcp.dialog",
-					order: 901,
-					locale: NS,
-				}, McpDialog);
-				return popup;
-			});
+			}, McpDialog));
 		}
 
 		exports.apply = apply;

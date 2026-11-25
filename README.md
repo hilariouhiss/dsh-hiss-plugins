@@ -1,14 +1,14 @@
 # dsh-hiss-plugins
 
-DeepSeek Harness (dsh) 插件仓库（pnpm workspace 单仓）：装一个包，得到九个可以单独开关的功能，外加 Plugins 页里的一个管理标签。
+DeepSeek Harness (dsh) 插件仓库（pnpm workspace 单仓）：装一个包，得到八个可以单独开关的功能，外加 Plugins 页里的一个管理标签。
 
 ## 插件
 
 | 包 | 说明 |
 |---|---|
-| [dsh-hiss-plugins](dsh-hiss-plugins)（npm: `dsh-hiss-plugins`，v1.5.1） | 一个 bundle，十条顶层行：一条载体行 + 九条功能行；九个功能各有一个开关，Plugins 页里逐行启停 |
+| [dsh-hiss-plugins](dsh-hiss-plugins)（npm: `dsh-hiss-plugins`，v2.0.0） | 一个 bundle，九条顶层行：一条载体行 + 八条功能行；八个功能各有一个开关，Plugins 页里逐行启停 |
 
-九个功能（行 id 就是开关的持久化地址）：
+八个功能（行 id 就是开关的持久化地址）：
 
 | 功能 | 行 id | 需要什么 | 说明 |
 |---|---|---|---|
@@ -20,7 +20,6 @@ DeepSeek Harness (dsh) 插件仓库（pnpm workspace 单仓）：装一个包，
 | ponytail | `dsh-hiss-plugins-ponytail` | `ponytail` 技能在被扫描的技能根里 | 采纳提示段（随等级变化）+ 宿主 `/ponytail` 等级命令（`lite`/`full`/`ultra`/`off`；默认 `full`，进程内按 agent 保存，不落盘） |
 | init | `dsh-hiss-plugins-init` | 无（纯宿主命令） | 宿主 `/init` 命令：读当前项目并在项目根生成/更新 `AGENTS.md`；已有文件按增量合并，命令只写有证据的 |
 | fix | `dsh-hiss-plugins-fix` | 无（纯宿主命令） | 宿主 `/fix [<symptom>]` 命令：先排查问题根因并报告，用户确认后才开始修复；本轮只诊断，不改文件 |
-| lan-access | `dsh-hiss-plugins-lan-access` | 手机与电脑在同一局域网；Windows 防火墙放行该端口 | 在局域网地址上再开一个网关，把桌面端正在跑的那套 GUI 转给手机；`/lan` 打印带 token 的地址，默认关闭 |
 
 细节（每个功能的前置要求、参数、限制）见 [dsh-hiss-plugins/README.md](dsh-hiss-plugins/README.md)。
 
@@ -36,17 +35,17 @@ dsh plugin --profile web add dsh-hiss-plugins
 dsh plugin --profile web add link:./dsh-hiss-plugins
 ```
 
-装完重启 dsh。注意 profile 的 `pnpm-workspace.yaml` 带供应链策略（`minimumReleaseAge`）：**不写版本号时，刚发布的版本会被挡住**，解析到上一代。要立刻用新版本就显式写版本号（`dsh-hiss-plugins@1.5.1`），或把该版本加进 profile 的 `minimumReleaseAgeExclude`。
+装完重启 dsh。注意 profile 的 `pnpm-workspace.yaml` 带供应链策略（`minimumReleaseAge`）：**不写版本号时，刚发布的版本会被挡住**，解析到上一代。要立刻用新版本就显式写版本号（`dsh-hiss-plugins@2.0.0`），或把该版本加进 profile 的 `minimumReleaseAgeExclude`。
 
 卸载用 `dsh plugin --profile web remove dsh-hiss-plugins`，然后重启。装坏的 profile 怎么救见 [AGENTS.md](AGENTS.md) §8。
 
 ## 管理标签（Plugins 页）
 
-侧边栏 **Plugins**（插件）页里多出一个 `dsh-hiss-plugins` 标签，列出九条功能行和它们的开关：
+侧边栏 **Plugins**（插件）页里多出一个 `dsh-hiss-plugins` 标签，列出八条功能行和它们的开关：
 
 - 开关经 host 的 `pluginManager` 远程写入 **profile 自己的** `cordis.patch.yml`（一条 `{ id, disabled }` 覆盖），只影响这个 profile；
 - profile 带 HMR 时立即生效；没有 HMR 时接口返回 `restart-required`，重启 dsh 生效；
-- 标签只列九条功能行 —— 载体行（`dsh-hiss-plugins`）是空的 host 半，它要存在，浏览器半才送得出来，所以别关它。
+- 标签只列八条功能行 —— 载体行（`dsh-hiss-plugins`）是空的 host 半，它要存在，浏览器半才送得出来，所以别关它。
 
 ## 开发
 
@@ -78,12 +77,12 @@ policy, signal)`、`ctx.sandboxPolicy.resolve`、`ctx.tools.register`/`defineToo
 跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token/secret）** 发布这一个包。
 
 ```powershell
-git tag dsh-hiss-plugins@1.5.1        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.5.1
+git tag dsh-hiss-plugins@2.0.0        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@2.0.0
 ```
 
 tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败
-（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.5.1`）。
+（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@2.0.0`）。
 
 **首次使用前**，在 npmjs.com 上为 `dsh-hiss-plugins` 配置 trusted publisher：
 Package → Settings → Trusted Publisher → GitHub Actions，填组织 `hilariouhiss`、仓库 `dsh-hiss-plugins`、

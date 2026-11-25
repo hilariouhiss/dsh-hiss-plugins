@@ -1,7 +1,7 @@
 {
 	"meta": {
 		"title": "dsh-hiss-plugins",
-		"description": "一个 DeepSeek Harness 组合包，携带 colgrep、codegraph、project-mcp、git-bash、superpowers、ponytail、init、fix、lan-access 九个可独立开关的插件，并在插件页提供管理标签。"
+		"description": "一个 DeepSeek Harness 组合包，携带 colgrep、codegraph、project-mcp、git-bash、superpowers、ponytail、init、fix 八个可独立开关的插件，并在插件页提供管理标签。"
 	},
 	"loading": "正在读取插件…",
 	"error": "暂时无法读取插件：{error}",
@@ -23,18 +23,6 @@
 	"featurePonytailDescription": "ponytail 采纳提示与 /ponytail 等级切换",
 	"featureInitDescription": "生成或更新项目 AGENTS.md（/init）",
 	"featureFixDescription": "先查根因并报告，确认后再修复（/fix）",
-	"featureLanAccessDescription": "让手机在同一局域网打开本 GUI（/lan 给出带 token 的地址）",
-	"lanButton": "手机连接",
-	"lanButtonAria": "用手机通过局域网连接：打开二维码",
-	"lanTitle": "手机扫码连接",
-	"lanClose": "关闭",
-	"lanLoading": "正在开启局域网访问…",
-	"lanHint": "手机与电脑连同一个网络，用相机扫码打开；打开一次后 30 天内免 token。",
-	"lanRestart": "已开启局域网访问，但需要重启 DSH 后二维码才可用。",
-	"lanFailed": "无法开启局域网访问：{error}",
-	"lanNotInstalled": "这个 profile 里没有 lan-access 行。",
-	"lanReadOnly": "无法在这个页面启用 lan-access 行（{reason}）。",
-	"lanFrameFailed": "二维码页没有响应；请先打开 /lan-access 检查原因。",
 	"mcpTitle": "MCP 服务器",
 	"mcpClose": "关闭",
 	"mcpLoading": "正在读取 MCP 状态…",

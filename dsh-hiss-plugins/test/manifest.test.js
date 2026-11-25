@@ -9,8 +9,7 @@ const shipped = (relative) => new URL(`../${relative}`, import.meta.url);
  * Harness packages the running installation supplies at runtime. Carrying our own copy
  * into a profile shadows the installation's collection with a different generation: the
  * plugin tree fails to link and the whole boot aborts (see AGENTS.md §3.4). Every feature
- * that imports a host package imports one of these, so all six are the bundle's peers;
- * `lan-access` uses ctx services and the Node standard library only, so it adds none.
+ * that imports a host package imports one of these, so all six are the bundle's peers.
  */
 const HOST_PROVIDED = [
 	"@deepseek-ai/dsh-bash-sandbox",
@@ -24,8 +23,8 @@ const HOST_PROVIDED = [
 /** The runtime generation this bundle is built and tested against. */
 const RUNTIME_GENERATION = "0.2.1-alpha.4";
 
-/** The nine features, each exported as a subpath and mounted by the bundle patch. */
-const FEATURES = ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init", "fix", "lan-access"];
+/** The eight features, each exported as a subpath and mounted by the bundle patch. */
+const FEATURES = ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init", "fix"];
 
 test("harness packages are host-provided peers, never bundled dependencies", () => {
 	const dependencies = Object.keys(manifest.dependencies ?? {});

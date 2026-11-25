@@ -1,7 +1,7 @@
 {
 	"name": "dsh-hiss-plugins",
-	"version": "1.5.1",
-	"description": "dsh-hiss-plugins — one DeepSeek Harness bundle carrying nine independently switchable plugins (colgrep, codegraph, project-mcp, git-bash, superpowers, ponytail, init, fix, lan-access) plus a management tab in the Plugins page.",
+	"version": "2.0.0",
+	"description": "dsh-hiss-plugins — one DeepSeek Harness bundle carrying eight independently switchable plugins (colgrep, codegraph, project-mcp, git-bash, superpowers, ponytail, init, fix) plus a management tab in the Plugins page.",
 	"keywords": [
 		"dsh",
 		"deepseek-harness",
@@ -15,9 +15,7 @@
 		"ponytail",
 		"agents-md",
 		"init",
-		"fix",
-		"lan",
-		"mobile"
+		"fix"
 	],
 	"license": "MIT",
 	"author": {
@@ -44,7 +42,6 @@
 		"./ponytail": "./lib/ponytail/index.js",
 		"./init": "./lib/init/index.js",
 		"./fix": "./lib/fix/index.js",
-		"./lan-access": "./lib/lan-access/index.js",
 		"./client": "./lib/client.js",
 		"./locale/*.json": "./locale/*.json",
 		"./package.json": "./package.json"

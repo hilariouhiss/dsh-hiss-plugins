@@ -14,8 +14,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ID = "dsh-hiss-plugins";
 /** Dictionary namespace the tab registers and binds. */
 const NS = "hissPlugins";
-/** The nine feature rows the tab manages, in the order it lists them. */
-const FEATURE_KEYS = ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init", "fix", "lan-access"];
+/** The eight feature rows the tab manages, in the order it lists them. */
+const FEATURE_KEYS = ["colgrep", "codegraph", "project-mcp", "gitbash", "superpowers", "ponytail", "init", "fix"];
 /** Refusal codes the page explains in its own words. */
 const READ_ONLY_CODES = ["management-required", "unaddressable"];
 
@@ -63,10 +63,9 @@ const ROWS = [
 	{ entryId: "hiss-ponytail", moduleName: `${PACKAGE_ID}/ponytail`, enabled: false, fiberPhase: "pending", patchId: "dsh-hiss-plugins-ponytail" },
 	{ entryId: "hiss-init", moduleName: `${PACKAGE_ID}/init`, enabled: true, fiberPhase: "active", patchId: "dsh-hiss-plugins-init" },
 	{ entryId: "hiss-fix", moduleName: `${PACKAGE_ID}/fix`, enabled: true, fiberPhase: "active", patchId: "dsh-hiss-plugins-fix" },
-	{ entryId: "hiss-lan-access", moduleName: `${PACKAGE_ID}/lan-access`, enabled: false, fiberPhase: null, patchId: "dsh-hiss-plugins-lan-access" },
 ];
 
-/** What those rows must become: this package's nine features, in the tab's fixed order. */
+/** What those rows must become: this package's eight features, in the tab's fixed order. */
 const MAPPED = [
 	{ entryId: "hiss-colgrep", key: "colgrep", enabled: true, toggleable: true, reason: undefined },
 	{ entryId: "hiss-codegraph", key: "codegraph", enabled: false, toggleable: true, reason: undefined },
@@ -76,7 +75,6 @@ const MAPPED = [
 	{ entryId: "hiss-ponytail", key: "ponytail", enabled: false, toggleable: true, reason: undefined },
 	{ entryId: "hiss-init", key: "init", enabled: true, toggleable: true, reason: undefined },
 	{ entryId: "hiss-fix", key: "fix", enabled: true, toggleable: true, reason: undefined },
-	{ entryId: "hiss-lan-access", key: "lan-access", enabled: false, toggleable: true, reason: undefined },
 ];
 
 /** A successful read answer. */
@@ -200,11 +198,6 @@ function mount(calls) {
 	return mountComponent(component, { ...registration.inject(), install() {}, openPackage() {} });
 }
 
-/** The slot registration contributed under one slot name. */
-function registrationOf(calls, name) {
-	return calls.registered.find((entry) => entry.registration.name === name);
-}
-
 /**
  * Mount one registered component with the props its slot passes.
  * @param component - the registered render function.
@@ -270,12 +263,12 @@ test("the bundle exports apply and the client services it uses", () => {
 	assert.deepEqual(exported.inject, ["slots", "locale", "remote", "remote.pluginManager", "uiConversation"]);
 });
 
-test("apply registers the dictionaries, the chat projection, the tab and the phone-link pair", () => {
+test("apply registers the dictionaries, the chat projection, the tab and the MCP overlay", () => {
 	const { calls } = applyBundle();
 	assert.deepEqual(calls.effects, ["hiss-plugins: dictionaries"]);
 	assert.equal(calls.dictionaries.namespace, NS);
-	assert.deepEqual(calls.injected, ["conversation.chat.node", "plugins.tab", "sidebar.footer.action", "shell.overlay"]);
-	assert.equal(calls.registered.length, 5);
+	assert.deepEqual(calls.injected, ["conversation.chat.node", "plugins.tab", "shell.overlay"]);
+	assert.equal(calls.registered.length, 3);
 	assert.equal(calls.definitions.length, 1);
 	const { registration, component } = tabOf(calls);
 	assert.equal(registration.name, "plugins.tab");
@@ -372,20 +365,20 @@ test("a broken project file is reported without blanking the dialog", async () =
 	}
 });
 
-test("the MCP dialog occupies the shell overlay beside the phone popup", () => {
+test("the MCP dialog is the shell overlay's only occupant", () => {
 	const { calls } = applyBundle();
 	const ids = calls.registered.filter((entry) => entry.registration.name === "shell.overlay").map((entry) => entry.registration.id).sort();
-	assert.deepEqual(ids, ["lan-access.popup", "mcp.dialog"]);
+	assert.deepEqual(ids, ["mcp.dialog"]);
 });
 
-test("the /mcp and /lan runs project a chat node, so a never-messaged session renders the transcript", () => {
+test("a /mcp run projects a chat node, so a never-messaged session renders the transcript", () => {
 	const { calls } = applyBundle();
 	const [definition] = calls.definitions;
 	assert.equal(definition.kind, "hiss-mcp-command");
 	assert.equal(definition.target, "chat");
 	const run = { type: "command/run", seq: 5, time: 1, data: { commandId: "cmd-1", name: "mcp", args: "" } };
 	assert.deepEqual(definition.match(run), { id: "cmd-1", role: "start" });
-	assert.deepEqual(definition.match({ type: "command/run", seq: 8, time: 1, data: { commandId: "cmd-3", name: "lan", args: "" } }), { id: "cmd-3", role: "start" });
+	assert.equal(definition.match({ type: "command/run", seq: 8, time: 1, data: { commandId: "cmd-3", name: "lan", args: "" } }), null, "the removed /lan command is not projected");
 	assert.equal(definition.match({ type: "command/run", seq: 6, time: 1, data: { commandId: "cmd-2", name: "goal" } }), null);
 	assert.equal(definition.match({ type: "command/done", seq: 7, time: 1, data: { commandId: "cmd-1", kind: "success", text: "done" } }), null);
 	const match = { ...definition.match(run), event: run };
@@ -408,7 +401,7 @@ test("the projection renders nothing: the generic command card keeps the report"
 	assert.equal(entry.component(), null);
 });
 
-test("the inject face exposes the nine feature keys in the tab's order", () => {
+test("the inject face exposes the eight feature keys in the tab's order", () => {
 	const { calls } = applyBundle();
 	const face = faceOf(calls);
 	assert.deepEqual(face.features, FEATURE_KEYS);
@@ -484,7 +477,7 @@ test("the tab renders one labelled switch per feature once the list arrives", as
 	assert.deepEqual(inputs.map((node) => node.props.checked), MAPPED.map((row) => row.enabled));
 	assert.deepEqual(inputs.map((node) => node.props.disabled), MAPPED.map((row) => !row.toggleable));
 	const text = textOf(tree);
-	for (const copy of ["semantic code search tool", "CodeGraph MCP tools", "mounts the project's .mcp.json per session", "Git Bash shell on Windows", "always-on superpowers skill mandate", "ponytail adoption hint and /ponytail level switching", "generates or updates the project's AGENTS.md (/init)", "diagnoses the root cause and waits for confirmation before fixing (/fix)", "opens this GUI from a phone on the same network (/lan prints the tokenized URL)"]) {
+	for (const copy of ["semantic code search tool", "CodeGraph MCP tools", "mounts the project's .mcp.json per session", "Git Bash shell on Windows", "always-on superpowers skill mandate", "ponytail adoption hint and /ponytail level switching", "generates or updates the project's AGENTS.md (/init)", "diagnoses the root cause and waits for confirmation before fixing (/fix)"]) {
 		assert.ok(text.includes(copy), `the card copy ${copy} is missing`);
 	}
 	assert.ok(text.includes("Enabled"));
@@ -569,98 +562,9 @@ test("a failed read shows the diagnostic and a retry that re-reads", async () =>
 	await retry.props.onClick();
 	const recovered = await tab.settle();
 	assert.equal(calls.listed, 2);
-	assert.equal(flatten(recovered).filter((node) => node.type === "input").length, 9);
+	assert.equal(flatten(recovered).filter((node) => node.type === "input").length, 8);
 });
 
-
-test("the sidebar foot offers a phone-link action that opens the popup", async () => {
-	const { calls } = applyBundle();
-	const entry = registrationOf(calls, "sidebar.footer.action");
-	assert.equal(entry.registration.id, "lan-access");
-	assert.equal(entry.registration.order, 10);
-	assert.equal(entry.registration.label(), "Phone link");
-
-	const wide = await mountComponent(entry.component, { wide: true }).settle();
-	const wideButton = flatten(wide).find((node) => node.type === "button");
-	assert.equal(wideButton.props.title, "Phone link");
-	assert.match(wideButton.props["aria-label"], /QR code/u);
-	assert.equal(wideButton.props["aria-expanded"], false);
-	assert.ok(textOf(wide).includes("Phone link"));
-
-	const rail = await mountComponent(entry.component, { wide: false }).settle();
-	assert.ok(!textOf(rail).includes("Phone link"), "the 56px rail shows the icon only");
-});
-
-test("clicking the phone action enables a disabled row and shows the QR frame", async (t) => {
-	const originalFetch = globalThis.fetch;
-	t.after(() => {
-		globalThis.fetch = originalFetch;
-	});
-	const fetched = [];
-	globalThis.fetch = async (url, init) => {
-		fetched.push([String(url), init?.method]);
-		return { ok: true, status: 200 };
-	};
-	const { calls } = applyBundle();
-	const popup = mountComponent(registrationOf(calls, "shell.overlay").component, {});
-	assert.equal(await popup.settle(), null, "the overlay host draws nothing until opened");
-
-	const buttonTree = await mountComponent(registrationOf(calls, "sidebar.footer.action").component, { wide: true }).settle();
-	flatten(buttonTree).find((node) => node.type === "button").props.onClick();
-	const tree = await popup.settle();
-	assert.deepEqual(calls.toggled, [["hiss-lan-access", true]], "the click turns the row on");
-	assert.deepEqual(fetched, [["/lan-access?embed=1", "HEAD"]]);
-	const frame = flatten(tree).find((node) => node.type === "iframe");
-	assert.equal(frame.props.src, "/lan-access?embed=1");
-	assert.match(textOf(tree), /Scan to connect a phone/u);
-});
-
-test("the popup reports a restart instead of an empty frame", async (t) => {
-	const originalFetch = globalThis.fetch;
-	t.after(() => {
-		globalThis.fetch = originalFetch;
-	});
-	globalThis.fetch = async () => ({ ok: true, status: 200 });
-	const { calls } = applyBundle({ setEnabled: () => changeOk("restart-required") });
-	const popup = mountComponent(registrationOf(calls, "shell.overlay").component, {});
-	await popup.settle();
-	const buttonTree = await mountComponent(registrationOf(calls, "sidebar.footer.action").component, { wide: true }).settle();
-	flatten(buttonTree).find((node) => node.type === "button").props.onClick();
-	const tree = await popup.settle();
-	assert.match(textOf(tree), /restart before the QR code/u);
-	assert.equal(flatten(tree).find((node) => node.type === "iframe"), undefined);
-});
-
-test("the popup reports a refused enablement", async (t) => {
-	const originalFetch = globalThis.fetch;
-	t.after(() => {
-		globalThis.fetch = originalFetch;
-	});
-	globalThis.fetch = async () => ({ ok: true, status: 200 });
-	const { calls } = applyBundle({ setEnabled: () => ({ ok: false, error: { code: "gateway/internal", message: "socket closed" } }) });
-	const popup = mountComponent(registrationOf(calls, "shell.overlay").component, {});
-	await popup.settle();
-	const buttonTree = await mountComponent(registrationOf(calls, "sidebar.footer.action").component, { wide: true }).settle();
-	flatten(buttonTree).find((node) => node.type === "button").props.onClick();
-	const tree = await popup.settle();
-	assert.match(textOf(tree), /Could not enable LAN access.*socket closed/u);
-});
-
-test("the popup reports a QR page the browser may not open", async (t) => {
-	const originalFetch = globalThis.fetch;
-	t.after(() => {
-		globalThis.fetch = originalFetch;
-	});
-	globalThis.fetch = async () => ({ ok: false, status: 401 });
-	const { calls } = applyBundle();
-	const popup = mountComponent(registrationOf(calls, "shell.overlay").component, {});
-	await popup.settle();
-	const buttonTree = await mountComponent(registrationOf(calls, "sidebar.footer.action").component, { wide: true }).settle();
-	flatten(buttonTree).find((node) => node.type === "button").props.onClick();
-	const tree = await popup.settle();
-	assert.match(textOf(tree), /QR page did not answer/u);
-	assert.equal(flatten(tree).find((node) => node.type === "iframe"), undefined);
-});
 
 test("the inlined dictionaries stay in sync with the locale JSON files", () => {
 	const { calls } = applyBundle();
