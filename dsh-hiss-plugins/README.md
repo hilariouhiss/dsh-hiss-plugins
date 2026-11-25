@@ -374,6 +374,8 @@ colgrep command:"init" / command:"status" / command:"clear"
 
   很多 Wi-Fi 会被 Windows 标成 **Public**，只写 `-Profile Private` 时规则不生效；`-Profile Any` 两个都覆盖。若安装时已经给应用本身点过「允许访问」，那条程序级规则（TCP 任意端口）通常已经放行。
 
+  手机显示**「响应时间太长 / ERR_CONNECTION_TIMED_OUT」**而本机 `curl http://<LAN地址>:7505/` 正常时，先查有没有别的**拦截**规则：`Get-NetFirewallRule -Direction Inbound -Action Block -Enabled True`。**Block 优先于 Allow**，而且 Windows 对 loopback 流量整体豁免防火墙，所以本机永远看不出问题。真实踩到的例子：别的工具留下的 `codex_sandbox_offline_block_inbound`（任何协议、`RemoteIP` 除 `127/8` 外全拦）开着时，二维码页好好的，手机却是超时；`Set-NetFirewallRule -DisplayName "codex_sandbox_offline_block_inbound" -Enabled False` 之后即通。
+
 - **明文的取舍**：局域网内是 `http://`，token 与 cookie 没有 TLS 保护，同网段可嗅探；只在可信网络用，公司/公共 Wi-Fi 下关掉这一行。手机端是非安全上下文：`navigator.clipboard` 不可用（复制按钮可能失灵）、装不成 PWA；GUI 是桌面优先布局，手机上偏挤。
 - **局限**：换 LAN IP（DHCP）后手机要用新地址（重新扫码即可，服务端 cookie 绑的是 `127.0.0.1`，重启/换端口不影响已配对设备）。token 每次重启都变。`/lan` 与 QR 页的输出会进会话日志（进程级 token，重启即失效）。
 - **不想装插件**：也可以直接跑一个独立实例 `dsh --profile web --host <LAN-IP> --port 7505`（反代场景再加 `--trusted-host`），启动时它自己打印带 token 的 URL；代价是另起一个 host 进程、和桌面端写同一份会话存储。
