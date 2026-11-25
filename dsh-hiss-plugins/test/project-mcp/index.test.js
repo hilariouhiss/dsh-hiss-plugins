@@ -526,7 +526,7 @@ test("a switch on an unmanaged global server is refused", async () => {
 	assert.deepEqual(calls.settings, []);
 });
 
-test("promote registers the server globally and shows it there at once", async () => {
+test("promote registers the server globally and leaves the workspace copy alone", async () => {
 	const cwd = dialogProject({ matlab: { command: "npx", args: ["-y", "m"] } });
 	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
 	const path = join(dir, "state.json");
@@ -534,11 +534,13 @@ test("promote registers the server globally and shows it there at once", async (
 	const { ctx, calls } = workspaceHost(cwd, {
 		managerList: () => (registered.length === 0 ? [{ name: "cg" }] : [{ name: "cg" }, { name: "matlab" }]),
 		onSettings: () => registered.push("matlab"),
+		agentTools: ["mcp__cg__x", "mcp__matlab__m"],
 	});
 	const view = await depsFor(ctx, { path }).promote("s1", "matlab");
 	assert.deepEqual(calls.settings, [["mcp-manager", {
 		servers: { matlab: { transport: "stdio", command: "npx", args: ["-y", "m"], env: {}, cwd, enabled: true } },
 	}]]);
-	assert.deepEqual(view.local, [{ name: "matlab", enabled: false, tools: [] }], "the local copy is now off");
-	assert.deepEqual(view.global.find((server) => server.name === "matlab"), { name: "matlab", managed: true, enabled: true, tools: [] }, "the global copy is listed");
+	assert.deepEqual(view.local, [{ name: "matlab", enabled: true, tools: [{ name: "mcp__matlab__m", enabled: true }] }], "the local copy keeps its mount and its tools");
+	assert.deepEqual(view.global.find((server) => server.name === "matlab"), { name: "matlab", managed: true, enabled: true, tools: [] }, "the global copy is listed too");
+	assert.deepEqual(await readState(path), { workspaces: {} }, "nothing is switched off");
 });

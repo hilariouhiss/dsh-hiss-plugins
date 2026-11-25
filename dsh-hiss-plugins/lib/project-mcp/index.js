@@ -459,14 +459,9 @@ export function depsFor(ctx, options = {}) {
 			validateEntry(serverName, entry, projectDir);
 			await settings().update("mcp-manager", { servers: { [serverName]: managerEntry(entry, projectDir) } });
 			await settleManager(ctx, serverName);
-			// The global copy now serves this server; every workspace copy would double the tools.
-			const state = await mutate(async () => {
-				const next = withServer(await readState(path), cwd, serverName, false);
-				await writeState(path, next);
-				return next;
-			});
-			for (const target of agentsInWorkspace(ctx, cwd)) await unmountServer(target, serverName);
-			return viewOf(ctx, agent, cwd, state);
+			// The workspace copy stays exactly as it was: the dialog lists the server in
+			// both columns, and this session keeps using the copy it already mounted.
+			return viewOf(ctx, agent, cwd, await readState(path));
 		},
 	};
 }
