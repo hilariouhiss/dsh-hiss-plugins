@@ -164,7 +164,7 @@ colgrep command:"init" / command:"status" / command:"clear"
 - **失败不致命**：坏 JSON、不支持的 transport、起不来的 server 都只影响它自己，打一条 warn，会话照常开。
 - **`/mcp` 看状态（文本报告）**：在本项目的会话里执行 `/mcp`，逐条列出 `.mcp.json` 声明的 server 与其实时状态 —— `connected, N tools`（MCP 桥连上并同步工具后才注册工具）、`no tools`（没连上，或 server 本身不暴露工具）、`skipped`（条目映射不了）、`unusable`（宿主 MCP 桥的 schema 拒绝）；另外报告本会话里来自项目外配置的 MCP 工具总数。状态读的是当前 agent 自己的工具表，所以列的是**此刻真正可用**的工具；命令不接受参数。
 - **新会话里立即显示**：DSH 的 Web 客户端在会话还没有任何 turn 时把整段对话当 blank 隐藏（只有 `turn/start` 会清 `sessionListMetadata.blank`），而 `/mcp` 只写 `command/run`/`command/done`。浏览器半因此给 `/mcp` 注册了一个非 `command` 的**伴随节点**（`hiss-mcp-command`，零尺寸），chat 视图立即激活——不必再先发一条消息。
-- **`/mcp` 弹窗（Web GUI）**：输入框里敲 `/mcp`（不带参数）会打开对话框，而不是发消息：**全局 MCP** 按服务器列出工具、每个工具一个开关（关掉后模型这一轮就看不到它）；**当前工作区** 按 `.mcp.json` 列服务器，整台开关 + 只读工具列表 + 「注册到全局」按钮；底部表单可以新增服务器并选「全局」或「当前工作区」。开关按**工作区路径**记住在 `~/.dsh/hiss-mcp.json`，换项目互不影响。带参数的 `/mcp` 仍走上面的文本报告（headless / ACP 也用它）。
+- **`/mcp` 弹窗（Web GUI）**：输入框里敲 `/mcp`（不带参数）打开对话框，而不是发消息。布局是**左右两栏**：左边「全局 MCP」、右边「当前工作区 MCP」。每台服务器默认**折叠**，点「N 个工具」展开列表；展开后全局那栏每个工具一个开关（关掉后模型这一轮就看不到它），工作区那栏工具只读。两种服务器都带**整台开关**：全局那台写 mcp-manager 的 `enabled`（对所有会话生效），工作区那台即时挂载/卸载。工作区服务器旁的「注册到全局」写进全局配置后，它**立刻出现在全局栏**（本地那份自动置为关闭，不必删 `.mcp.json`）。右下「添加 MCP」按钮展开新增表单（选全局或工作区），标题栏「刷新」重新读取状态。开关状态按**工作区路径**记在 `~/.dsh/hiss-mcp.json`，换项目互不影响。带参数的 `/mcp` 仍走上面的文本报告（headless / ACP 也用它）。
 - **为什么工作区服务器不能逐工具关**：DSH 只允许在 agent scope 屏蔽**全局层**注册的工具（`tools.restrict`），项目 MCP 工具挂在 agent 自己的 scope 里，只能整台挂载/卸载。要逐工具控制，点该服务器的「注册到全局」把它写进全局配置（mcp-manager），它随后出现在全局区、可逐工具开关。
 
 `.mcp.json` 就是 Claude Code 的项目级 MCP 配置文件：
