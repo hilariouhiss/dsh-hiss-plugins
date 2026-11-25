@@ -6,7 +6,7 @@ DeepSeek Harness (dsh) 插件仓库（pnpm workspace 单仓）：装一个包，
 
 | 包 | 说明 |
 |---|---|
-| [dsh-hiss-plugins](dsh-hiss-plugins)（npm: `dsh-hiss-plugins`，v1.5.0） | 一个 bundle，十条顶层行：一条载体行 + 九条功能行；九个功能各有一个开关，Plugins 页里逐行启停 |
+| [dsh-hiss-plugins](dsh-hiss-plugins)（npm: `dsh-hiss-plugins`，v1.5.1） | 一个 bundle，十条顶层行：一条载体行 + 九条功能行；九个功能各有一个开关，Plugins 页里逐行启停 |
 
 九个功能（行 id 就是开关的持久化地址）：
 
@@ -36,7 +36,7 @@ dsh plugin --profile web add dsh-hiss-plugins
 dsh plugin --profile web add link:./dsh-hiss-plugins
 ```
 
-装完重启 dsh。注意 profile 的 `pnpm-workspace.yaml` 带供应链策略（`minimumReleaseAge`）：**不写版本号时，刚发布的版本会被挡住**，解析到上一代。要立刻用新版本就显式写版本号（`dsh-hiss-plugins@1.5.0`），或把该版本加进 profile 的 `minimumReleaseAgeExclude`。
+装完重启 dsh。注意 profile 的 `pnpm-workspace.yaml` 带供应链策略（`minimumReleaseAge`）：**不写版本号时，刚发布的版本会被挡住**，解析到上一代。要立刻用新版本就显式写版本号（`dsh-hiss-plugins@1.5.1`），或把该版本加进 profile 的 `minimumReleaseAgeExclude`。
 
 卸载用 `dsh plugin --profile web remove dsh-hiss-plugins`，然后重启。装坏的 profile 怎么救见 [AGENTS.md](AGENTS.md) §8。
 
@@ -78,12 +78,12 @@ policy, signal)`、`ctx.sandboxPolicy.resolve`、`ctx.tools.register`/`defineToo
 跑全量测试，再用 **npm trusted publishing（OIDC，无需任何 token/secret）** 发布这一个包。
 
 ```powershell
-git tag dsh-hiss-plugins@1.5.0        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
-git push origin dsh-hiss-plugins@1.5.0
+git tag dsh-hiss-plugins@1.5.1        # 必须与 dsh-hiss-plugins/package.json 的 version 逐字一致
+git push origin dsh-hiss-plugins@1.5.1
 ```
 
 tag 名里没有的包不会被发布；tag 与 manifest 不一致、或目录不存在时，工作流在发布前就失败
-（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.5.0`）。
+（可先本地验一遍：`node scripts/resolve-tag.mjs dsh-hiss-plugins@1.5.1`）。
 
 **首次使用前**，在 npmjs.com 上为 `dsh-hiss-plugins` 配置 trusted publisher：
 Package → Settings → Trusted Publisher → GitHub Actions，填组织 `hilariouhiss`、仓库 `dsh-hiss-plugins`、
