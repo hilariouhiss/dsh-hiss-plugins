@@ -48,6 +48,26 @@ export function apply(ctx, config = {}) {
 		const connection = connectionCtx.connection;
 		const webServer = connectionCtx.get("webServer");
 
+		/**
+		 * The URL a client opens to receive a browser cookie. DSH 0.2.2 moved browser
+		 * auth into the Token provider and removed Connection's `authenticatedUrl`, so
+		 * the signed URL is collected the documented way: emit `webserver/entry-url`
+		 * and take the entry carrying the launch token (WebApp and the remote
+		 * connection collect their entry URLs the same way).
+		 * @param base - the advertised root without credentials.
+		 * @returns the tokenized URL, or `base` when nothing signs one.
+		 */
+		const authenticatedUrl = (base) => {
+			if (webServer === undefined || typeof ctx.emit !== "function") return base;
+			const entries = [];
+			try {
+				ctx.emit(webServer, "webserver/entry-url", base, entries);
+			} catch {
+				return base;
+			}
+			return pickTokenUrl(entries, base);
+		};
+
 		if (webServer !== undefined && typeof webServer.register === "function") {
 			connectionCtx.effect(() => webServer.register({
 				kind: "exact",
@@ -79,7 +99,7 @@ export function apply(ctx, config = {}) {
 			try {
 				const gateway = await bindGateway(server, port, host, {
 					pair,
-					tokenUrl: () => connection.authenticatedUrl(`${server.getOrigin()}/`),
+					tokenUrl: () => authenticatedUrl(`${server.getOrigin()}/`),
 					log: debug ? writeLog : undefined,
 				});
 				if (debug) writeLog({ event: "listen", address: gateway.address, port: gateway.port });
@@ -103,7 +123,7 @@ export function apply(ctx, config = {}) {
 				name: "lan",
 				description: "Show the LAN URL (and QR page) a phone can use for this Web GUI",
 				handler: (invocation) => (invocation.rawInput.trim() === ""
-					? report(state, connection, lanAddresses())
+					? report(state, authenticatedUrl, lanAddresses())
 					: { kind: "error", text: "Usage: /lan (no arguments)" }),
 			});
 		});
@@ -136,11 +156,11 @@ async function bindGateway(server, port, pinned, pairing) {
  * Build the `/lan` answer from the listener's current state; LAN addresses are
  * read at call time, not at boot, so a DHCP change shows up instead of going stale.
  * @param {{ status: string, error?: string, bindHost?: string, port?: number, pageUrl?: string }} state - the listener state.
- * @param {{ authenticatedUrl: (base: string) => string }} connection - the browser-auth carrier.
+ * @param {(base: string) => string} authenticatedUrl - signs one URL with this process's launch token.
  * @param {{ name: string, address: string }[]} addresses - the current LAN addresses.
  * @returns {{ kind: "success" | "error", text: string }} the command result.
  */
-export function report(state, connection, addresses) {
+export function report(state, authenticatedUrl, addresses) {
 	if (state.status === "listening") {
 		const physical = addresses.filter((entry) => entry.virtual !== true);
 		const ignored = addresses.filter((entry) => entry.virtual === true);
@@ -156,12 +176,25 @@ export function report(state, connection, addresses) {
 		return { kind: "success", text: lines.join("\n") };
 	}
 	if (state.status === "direct") {
-		const url = connection.authenticatedUrl(`http://${state.bindHost}:${String(state.port)}/`);
+		const url = authenticatedUrl(`http://${state.bindHost}:${String(state.port)}/`);
 		return { kind: "success", text: `The Host already listens on a network address: ${url}` };
 	}
 	if (state.status === "failed") return { kind: "error", text: `LAN access is not running: ${state.error}. Set \`host\` or \`port\` in the profile patch and reload the row.` };
 	if (state.status === "closed") return { kind: "error", text: "LAN access is disabled; enable the lan-access row in the Plugins page." };
 	return { kind: "error", text: "LAN access is still starting; run /lan again in a moment." };
+}
+
+/**
+ * Pick the entry URL that carries this process's launch token.
+ * @param {readonly { url?: string }[]} entries - rows `webserver/entry-url` collected.
+ * @param {string} base - the URL to keep when no provider signs one.
+ * @returns the tokenized URL, or `base`.
+ */
+export function pickTokenUrl(entries, base) {
+	for (const entry of entries) {
+		if (typeof entry?.url === "string" && /[?&]token=/u.test(entry.url)) return entry.url;
+	}
+	return base;
 }
 
 /**

@@ -9,7 +9,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { connect } from "node:net";
-import { apply, inject, name, renderPage, report, servePage } from "../../lib/lan-access/index.js";
+import { apply, inject, name, pickTokenUrl, renderPage, report, servePage } from "../../lib/lan-access/index.js";
 
 const ADDRESSES = [
 	{ name: "WLAN", address: "192.168.102.124", virtual: false },
@@ -23,7 +23,7 @@ const VIRTUAL_ONLY = [{ name: "vEthernet (Default Switch)", address: "172.19.112
  * @returns the recorded commands, the page route, the settled listeners, and helpers.
  */
 function setup({ webServer, connection, config } = {}) {
-	const calls = { commands: [], warnings: [], routes: [], admitted: [] };
+	const calls = { commands: [], warnings: [], routes: [], emitted: [] };
 	const tasks = [];
 	const disposers = [];
 	const server = {
@@ -56,6 +56,10 @@ function setup({ webServer, connection, config } = {}) {
 		},
 		inject(_services, callback) {
 			callback(ctx);
+		},
+		emit(subject, name, baseUrl, entries) {
+			calls.emitted.push({ subject, name, baseUrl });
+			entries.push({ label: "dsh web", url: `${baseUrl}?token=T`, open: true });
 		},
 		effect(callback) {
 			const task = Promise.resolve()
@@ -129,29 +133,36 @@ test("/lan lists the current LAN address, the QR page and the cookie lifetime", 
 	const row = setup({ config: { host: "127.0.0.1", port: 0 } });
 	t.after(() => row.dispose());
 	await row.settled();
-	const result = report({ status: "listening", port: 7505, pair: "PAIR", pageUrl: "http://127.0.0.1:4321/lan-access" }, { authenticatedUrl: (base) => `${base}?token=T` }, ADDRESSES);
+	const result = report({ status: "listening", port: 7505, pair: "PAIR", pageUrl: "http://127.0.0.1:4321/lan-access" }, (base) => `${base}?token=T`, ADDRESSES);
 	assert.equal(result.kind, "success");
 	assert.match(result.text, /http:\/\/192\.168\.102\.124:7505\/\?pair=PAIR/u);
 	assert.match(result.text, /http:\/\/127\.0\.0\.1:4321\/lan-access/u);
-	const withoutPage = report({ status: "listening", port: 7505, pair: "PAIR" }, { authenticatedUrl: (base) => `${base}?token=T` }, ADDRESSES);
+	const withoutPage = report({ status: "listening", port: 7505, pair: "PAIR" }, (base) => `${base}?token=T`, ADDRESSES);
 	assert.match(withoutPage.text, /30 days/u, "without a QR page the plain cookie lifetime note is the fallback");
 	assert.match(result.text, /172\.19\.112\.1/u, "other adapters are named, not implied");
 	assert.equal(row.calls.warnings.length, 1, "the exposure is logged once");
 	assert.match(row.calls.warnings[0], /plain HTTP/u);
 });
 
+test("pickTokenUrl takes the signed entry and keeps the plain base otherwise", () => {
+	assert.equal(pickTokenUrl([{ label: "dsh web", url: "http://127.0.0.1:4321/?token=T" }], "http://127.0.0.1:4321/"), "http://127.0.0.1:4321/?token=T");
+	assert.equal(pickTokenUrl([{ label: "other", url: "http://127.0.0.1:4321/" }], "http://127.0.0.1:4321/"), "http://127.0.0.1:4321/", "an unsigned entry never replaces the base");
+	assert.equal(pickTokenUrl([], "http://127.0.0.1:4321/"), "http://127.0.0.1:4321/", "no provider keeps the plain URL");
+	assert.equal(pickTokenUrl([{ label: "broken" }, { url: "http://x/?token=Q" }], "base"), "http://x/?token=Q", "an entry without a URL is skipped");
+});
+
 test("/lan reports a machine without a LAN address", () => {
-	const result = report({ status: "listening", port: 7505 }, { authenticatedUrl: (base) => base }, []);
+	const result = report({ status: "listening", port: 7505 }, (base) => base, []);
 	assert.equal(result.kind, "error");
 	assert.match(result.text, /no physical LAN IPv4 address/u);
 });
 
 test("/lan reports the boot-time failure instead of pretending to listen", () => {
-	const failed = report({ status: "failed", error: "listen EADDRNOTAVAIL 1.2.3.4:7505" }, { authenticatedUrl: (base) => base }, ADDRESSES);
+	const failed = report({ status: "failed", error: "listen EADDRNOTAVAIL 1.2.3.4:7505" }, (base) => base, ADDRESSES);
 	assert.equal(failed.kind, "error");
 	assert.match(failed.text, /not running/u);
 	assert.match(failed.text, /EADDRNOTAVAIL/u);
-	const closed = report({ status: "closed" }, { authenticatedUrl: (base) => base }, ADDRESSES);
+	const closed = report({ status: "closed" }, (base) => base, ADDRESSES);
 	assert.match(closed.text, /disabled/u);
 });
 
@@ -162,7 +173,9 @@ test("a Host already bound to a network address is reported without a second lis
 	const result = row.run();
 	assert.equal(result.kind, "success");
 	assert.match(result.text, /already listens on a network address/u);
-	assert.match(result.text, /http:\/\/192\.168\.7\.14:7505\/\?token=T/u);
+	assert.match(result.text, /http:\/\/192\.168\.7\.14:7505\/\?token=T/u, "the direct URL is signed through webserver/entry-url");
+	assert.deepEqual(row.calls.emitted.map(({ name, baseUrl }) => ({ name, baseUrl })), [{ name: "webserver/entry-url", baseUrl: "http://192.168.7.14:7505/" }]);
+	assert.equal(row.calls.emitted[0].subject, row.server, "the event is emitted on the webServer instance");
 	assert.equal(row.calls.warnings.length, 0);
 	assert.equal(row.calls.routes.length, 1, "the QR page is still useful in the direct case");
 });
@@ -230,7 +243,7 @@ test("a machine with only virtual adapters shows no QR at all", () => {
 	assert.ok(!page.captured.body.includes("<svg "), "a virtual address is never offered as a scan target");
 	assert.match(page.captured.body, /只有虚拟网卡/u);
 
-	const result = report({ status: "listening", port: 7505, pair: "PAIR" }, { authenticatedUrl: (base) => base }, VIRTUAL_ONLY);
+	const result = report({ status: "listening", port: 7505, pair: "PAIR" }, (base) => base, VIRTUAL_ONLY);
 	assert.equal(result.kind, "error");
 	assert.match(result.text, /no physical LAN IPv4 address/u);
 });
