@@ -300,30 +300,48 @@ test("a bare /mcp is decorated into a client dialog", () => {
 	assert.equal(typeof decoration.ui.run({ sessionId: "s1" }), "undefined", "opening the dialog submits nothing");
 });
 
-test("the dialog lists both sections and reports a server with no tools", async () => {
+test("the dialog draws two columns, collapsed per server, with the add form behind a button", async () => {
 	const realFetch = globalThis.fetch;
 	globalThis.fetch = async () => ({
 		ok: true,
 		async json() {
 			return { ok: true, value: {
 				cwd: "proj",
-				global: [{ name: "cg", enabled: true, tools: [] }],
-				local: [{ name: "matlab", enabled: true, tools: [{ name: "mcp__matlab__run", enabled: true }] }],
+				global: [
+					{ name: "cg", managed: true, enabled: true, tools: [] },
+					{ name: "matlab", managed: true, enabled: true, tools: [{ name: "mcp__matlab__a", enabled: true }, { name: "mcp__matlab__b", enabled: true }] },
+				],
+				local: [{ name: "fs", enabled: true, tools: [{ name: "mcp__fs__read", enabled: true }] }],
 			} };
 		},
 	});
 	try {
-		const { calls } = applyBundle();
+		const { calls } = applyBundle({ language: "zh" });
 		calls.decorations[0].ui.run({ sessionId: "s1" });
 		const dialog = calls.registered.find((entry) => entry.registration.id === "mcp.dialog");
-		const tree = await mountComponent(dialog.component, {}).settle();
-		const text = textOf(tree);
-		assert.ok(text.includes("Global MCP"), "the global section is drawn");
-		assert.ok(text.includes("Workspace MCP"), "the workspace section is drawn");
-		assert.ok(text.includes("No tools"), "a server without tools says so");
-		assert.ok(text.includes("mcp__matlab__run"), "a workspace server lists its tools read-only");
-		const labels = flatten(tree).filter((node) => node.type === "input" && node.props["aria-label"] !== undefined).map((node) => node.props["aria-label"]);
-		assert.deepEqual(labels, ["Toggle server matlab"], "only the workspace server has a switch");
+		const pump = mountComponent(dialog.component, {});
+		let tree = await pump.settle();
+		const text0 = textOf(tree);
+		assert.ok(text0.includes("全局 MCP"), "the left column is the global one");
+		assert.ok(text0.includes("当前工作区 MCP"), "the right column is the workspace one");
+		assert.ok(text0.includes("mcp__matlab__a") === false, "tool rows start collapsed");
+		const labels = () => flatten(tree).filter((node) => node.type === "input" && node.props["aria-label"] !== undefined).map((node) => node.props["aria-label"]);
+		assert.deepEqual(labels().sort(), ["开关服务器 cg", "开关服务器 fs", "开关服务器 matlab"].sort(), "each server has a master switch");
+		assert.equal(flatten(tree).some((node) => node.props?.placeholder === "my-server"), false, "the add form is behind a button");
+		const buttons = flatten(tree).filter((node) => node.type === "button");
+		const refresh = buttons.find((node) => node.props["aria-label"] === "刷新");
+		assert.ok(refresh, "the header carries a refresh button");
+		const expand = buttons.find((node) => node.props["aria-label"] === "展开 matlab 的工具");
+		assert.ok(expand, "each server can be expanded");
+		const add = buttons.find((node) => node.props["aria-label"] === "添加 MCP");
+		assert.ok(add, "the add form is opened by a button");
+		expand.props.onClick();
+		await pump.settle();
+		tree = await pump.settle();
+		assert.ok(textOf(tree).includes("mcp__matlab__a"), "expanding shows the tools");
+		add.props.onClick();
+		await pump.settle();
+		assert.ok(flatten(await pump.settle()).some((node) => node.props?.placeholder === "my-server"), "the button opens the form");
 	} finally {
 		globalThis.fetch = realFetch;
 	}

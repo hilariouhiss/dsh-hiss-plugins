@@ -60,5 +60,11 @@
 	"mcpAddCommand": "Command",
 	"mcpAddArgs": "Arguments (space separated)",
 	"mcpAddUrl": "URL",
-	"mcpAddSubmit": "Add"
+	"mcpAddSubmit": "Add",
+	"mcpRefresh": "Refresh",
+	"mcpAdd": "Add MCP",
+	"mcpExpand": "{count} tools",
+	"mcpCollapse": "Collapse",
+	"mcpExpandAria": "Expand the tools of {name}",
+	"mcpCollapseAria": "Collapse the tools of {name}"
 }

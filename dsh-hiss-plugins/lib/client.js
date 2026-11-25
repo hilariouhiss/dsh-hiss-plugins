@@ -63,7 +63,11 @@ window.__ModuleLoader__.load({
 		const LAN_HINT_STYLE = { margin: 0, color: "var(--dsw-alias-label-tertiary)", fontSize: "13px", lineHeight: "20px" };
 		const LAN_FRAME_STYLE = { width: "100%", height: "360px", border: "none", borderRadius: "8px", background: "#fff", display: "block" };
 		/** The MCP dialog: same shell as the phone popup, one column of servers inside. */
-		const MCP_DIALOG_STYLE = { width: "520px", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 48px)", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px", padding: "16px", borderRadius: "12px", background: "var(--dsw-alias-bg-primary, #fff)", color: "var(--dsw-alias-label-primary)", boxShadow: "0 18px 48px rgba(0, 0, 0, 0.28)" };
+		const MCP_DIALOG_STYLE = { width: "880px", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 48px)", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px", padding: "16px", borderRadius: "12px", background: "var(--dsw-alias-bg-primary, #fff)", color: "var(--dsw-alias-label-primary)", boxShadow: "0 18px 48px rgba(0, 0, 0, 0.28)" };
+		/** Two columns: global on the left, the workspace on the right. */
+		const MCP_COLUMNS_STYLE = { display: "flex", gap: "16px", alignItems: "flex-start" };
+		const MCP_COLUMN_STYLE = { display: "flex", flexDirection: "column", gap: "8px", flex: "1 1 0", minWidth: 0 };
+		const MCP_ACTIONS_STYLE = { display: "inline-flex", gap: "8px" };
 		const MCP_SECTION_STYLE = { display: "flex", flexDirection: "column", gap: "6px" };
 		const MCP_SERVER_STYLE = { display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", border: "0.5px solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l3))", borderRadius: "10px" };
 		const MCP_SERVER_HEADER = { display: "flex", alignItems: "center", gap: "10px" };
@@ -137,6 +141,12 @@ window.__ModuleLoader__.load({
 			mcpAddArgs: "参数（空格分隔）",
 			mcpAddUrl: "URL",
 			mcpAddSubmit: "添加",
+			mcpRefresh: "刷新",
+			mcpAdd: "添加 MCP",
+			mcpExpand: "{count} 个工具",
+			mcpCollapse: "收起",
+			mcpExpandAria: "展开 {name} 的工具",
+			mcpCollapseAria: "收起 {name} 的工具",
 		};
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
@@ -198,6 +208,12 @@ window.__ModuleLoader__.load({
 			mcpAddArgs: "Arguments (space separated)",
 			mcpAddUrl: "URL",
 			mcpAddSubmit: "Add",
+			mcpRefresh: "Refresh",
+			mcpAdd: "Add MCP",
+			mcpExpand: "{count} tools",
+			mcpCollapse: "Collapse",
+			mcpExpandAria: "Expand the tools of {name}",
+			mcpCollapseAria: "Collapse the tools of {name}",
 		};
 
 		/** Read one thrown value as text. */
@@ -641,41 +657,52 @@ window.__ModuleLoader__.load({
 			return { name: "", scope: "workspace", type: "stdio", command: "", args: "", url: "" };
 		}
 
+		/** One master switch, so both columns read the same. */
+		function switchControl(checked, label, onChange) {
+			return jsx("label", { style: SWITCH_STYLE, children: jsx("input", {
+				type: "checkbox",
+				checked,
+				"aria-label": label,
+				onChange: (event) => onChange(event.currentTarget.checked),
+			}) });
+		}
+
 		/**
-		 * One server block: its switch or connection state, its tools, and — for a workspace
-		 * server — the one-click promotion into the global list.
+		 * One server card: master switch, connection line, the expand toggle, and — when
+		 * open — its tools. Collapsed is the default: a real MCP server exposes a dozen.
 		 * @param server - one entry of the dialog view.
 		 * @param side - "global" or "local".
-		 * @param handlers - the dialog's bound actions.
-		 * @returns the block element.
+		 * @param view - the dialog's bound lookups and actions.
+		 * @returns the card element.
 		 */
-		function serverBlock(server, side, handlers) {
-			const { t, onTool, onServer, onPromote } = handlers;
-			const connected = server.tools.length > 0;
-			const head = [jsx("strong", { key: "name", children: server.name })];
+		function serverBlock(server, side, view) {
+			const { t, expanded, onExpand, onTool, onServer, onGlobalServer, onPromote } = view;
+			const key = `${side}:${server.name}`;
+			const open = expanded[key] === true;
+			const header = [jsx("strong", { key: "name", children: server.name })];
 			if (side === "local") {
-				head.push(jsx("label", { key: "switch", style: SWITCH_STYLE, children: [
-					jsx("input", {
-						type: "checkbox",
-						checked: server.enabled,
-						"aria-label": t("mcpServerToggle", { name: server.name }),
-						onChange: (event) => onServer(server.name, event.currentTarget.checked),
-					}),
-					jsx("span", { children: server.enabled ? t("enabledTag") : t("disabledTag") }),
-				] }));
-				head.push(jsx("button", {
+				header.push(switchControl(server.enabled, t("mcpServerToggle", { name: server.name }), (value) => onServer(server.name, value)));
+				header.push(jsx("button", {
 					key: "promote",
 					type: "button",
 					style: BUTTON_STYLE,
 					onClick: () => onPromote(server.name),
 					children: t("mcpPromote"),
 				}));
-			} else {
-				head.push(jsx("span", { key: "status", style: DESCRIPTION_STYLE, children: connected ? t("mcpConnected") : t("mcpNotConnected") }));
+			} else if (server.managed) {
+				header.push(switchControl(server.enabled, t("mcpServerToggle", { name: server.name }), (value) => onGlobalServer(server.name, value)));
 			}
-			const rows = server.tools.length === 0
-				? [jsx("p", { key: "empty", style: DESCRIPTION_STYLE, children: t("mcpNoTools") })]
-				: [jsx("ul", { key: "tools", style: LIST_STYLE, children: server.tools.map((tool) => jsxs("li", {
+			header.push(jsx("span", { key: "status", style: DESCRIPTION_STYLE, children: server.tools.length === 0 ? t("mcpNotConnected") : t("mcpConnected") }));
+			header.push(jsx("button", {
+				key: "expand",
+				type: "button",
+				style: BUTTON_STYLE,
+				"aria-label": open ? t("mcpCollapseAria", { name: server.name }) : t("mcpExpandAria", { name: server.name }),
+				onClick: () => onExpand(key),
+				children: open ? t("mcpCollapse") : t("mcpExpand", { count: server.tools.length }),
+			}));
+			const tools = open && server.tools.length > 0
+				? [jsx("ul", { key: "tools", style: LIST_STYLE, children: server.tools.map((tool) => jsxs("li", {
 					style: MCP_TOOL_STYLE,
 					children: [
 						side === "global" ? jsx("input", {
@@ -686,19 +713,19 @@ window.__ModuleLoader__.load({
 						}) : null,
 						jsx("code", { style: MCP_TOOL_NAME_STYLE, children: tool.name }),
 					],
-				}, tool.name)) })];
-			return jsxs("li", { style: MCP_SERVER_STYLE, children: [
-				jsx("div", { style: MCP_SERVER_HEADER, children: head }),
-				...rows,
-			] }, server.name);
+				}, tool.name)) })]
+				: [];
+			return jsxs("li", { style: MCP_SERVER_STYLE, children: [jsx("div", { style: MCP_SERVER_HEADER, children: header }), ...tools] }, server.name);
 		}
 
-		/** The `/mcp` dialog: both sections, the switches, and the add-server form. */
+		/** The `/mcp` dialog: two columns, collapsed servers, and the add form behind a button. */
 		function McpDialog() {
 			const { store, t, post } = mcpUi;
 			const dialog = useDialog(store);
 			const [state, setState] = React.useState({ kind: "idle" });
 			const [notice, setNotice] = React.useState(null);
+			const [expanded, setExpanded] = React.useState({});
+			const [formOpen, setFormOpen] = React.useState(false);
 			const [form, setForm] = React.useState(emptyForm());
 			React.useEffect(() => {
 				if (!dialog.open) return undefined;
@@ -722,11 +749,7 @@ window.__ModuleLoader__.load({
 				return () => globalThis.window?.removeEventListener?.("keydown", onKey);
 			}, [dialog.open, store]);
 			if (!dialog.open) return null;
-			/**
-			 * Run one dialog request and re-render from the answer it returns.
-			 * @param body - the request without its session id.
-			 * @returns whether the host accepted it.
-			 */
+			/** Run one request and re-render from the answer; resolves to whether it worked. */
 			const run = (body) => {
 				setNotice(null);
 				return Promise.resolve().then(() => post({ ...body, sessionId: dialog.sessionId })).then((value) => {
@@ -739,8 +762,11 @@ window.__ModuleLoader__.load({
 			};
 			const handlers = {
 				t,
+				expanded,
+				onExpand: (key) => setExpanded((old) => ({ ...old, [key]: old[key] !== true })),
 				onTool: (tool, enabled) => run({ action: "set-tool", tool, enabled }),
 				onServer: (server, enabled) => run({ action: "set-server", server, enabled }),
+				onGlobalServer: (server, enabled) => run({ action: "set-global-server", server, enabled }),
 				onPromote: (server) => run({ action: "promote", server }),
 			};
 			const field = (label, key, placeholder) => jsxs("label", { style: MCP_FIELD_STYLE, children: [
@@ -762,9 +788,16 @@ window.__ModuleLoader__.load({
 					action: "add-server",
 					server: { name: form.name, scope: form.scope, type: form.type, command: form.command, args: form.args, url: form.url },
 				}).then((accepted) => {
-					if (accepted) setForm(emptyForm());
+					if (accepted) {
+						setForm(emptyForm());
+						setFormOpen(false);
+					}
 				});
 			};
+			const column = (side, title, empty, entries) => jsxs("section", { style: MCP_COLUMN_STYLE, children: [
+				jsx("strong", { children: title }),
+				entries.length === 0 ? jsx("p", { style: DESCRIPTION_STYLE, children: empty }) : jsx("ul", { style: LIST_STYLE, children: entries.map((server) => serverBlock(server, side, handlers)) }),
+			] });
 			return jsx("div", {
 				role: "presentation",
 				style: LAN_OVERLAY_STYLE,
@@ -778,40 +811,42 @@ window.__ModuleLoader__.load({
 					children: [
 						jsxs("div", { style: LAN_HEADER_STYLE, children: [
 							jsx("strong", { children: t("mcpTitle") }),
-							jsx("button", { type: "button", style: BUTTON_STYLE, onClick: () => store.close(), children: t("mcpClose") }),
+							jsxs("span", { style: MCP_ACTIONS_STYLE, children: [
+								jsx("button", { type: "button", style: BUTTON_STYLE, "aria-label": t("mcpRefresh"), onClick: () => run({ action: "status" }), children: t("mcpRefresh") }),
+								jsx("button", { type: "button", style: BUTTON_STYLE, onClick: () => store.close(), children: t("mcpClose") }),
+							] }),
 						] }),
 						state.kind === "loading" ? jsx("p", { role: "status", style: DESCRIPTION_STYLE, children: t("mcpLoading") }) : null,
 						state.kind === "error" ? jsx("p", { role: "alert", style: DESCRIPTION_STYLE, children: t("mcpFailed", { error: state.message }) }) : null,
 						view !== undefined && view.workspaceError !== undefined ? jsx("p", { role: "alert", style: DESCRIPTION_STYLE, children: t("mcpFailed", { error: view.workspaceError }) }) : null,
-						view === undefined ? null : jsxs("div", { style: MCP_SECTION_STYLE, children: [
-							jsx("strong", { children: t("mcpGlobal") }),
-							view.global.length === 0 ? jsx("p", { style: DESCRIPTION_STYLE, children: t("mcpNoGlobal") }) : jsx("ul", { style: LIST_STYLE, children: view.global.map((server) => serverBlock(server, "global", handlers)) }),
-						] }),
-						view === undefined ? null : jsxs("div", { style: MCP_SECTION_STYLE, children: [
-							jsx("strong", { children: t("mcpLocal") }),
-							view.local.length === 0 ? jsx("p", { style: DESCRIPTION_STYLE, children: t("mcpNoLocal") }) : jsx("ul", { style: LIST_STYLE, children: view.local.map((server) => serverBlock(server, "local", handlers)) }),
-						] }),
-						jsxs("div", { style: MCP_FORM_STYLE, children: [
-							jsx("strong", { children: t("mcpAddTitle") }),
-							field(t("mcpAddName"), "name", "my-server"),
-							jsxs("label", { style: MCP_FIELD_STYLE, children: [
-								jsx("span", { style: DESCRIPTION_STYLE, children: t("mcpAddScope") }),
-								jsxs("select", { value: form.scope, style: MCP_INPUT_STYLE, onChange: (event) => { const value = event.currentTarget.value; setForm((old) => ({ ...old, scope: value })); }, children: [
-									jsx("option", { value: "workspace", children: t("mcpAddWorkspace") }),
-									jsx("option", { value: "global", children: t("mcpAddGlobal") }),
-								] }),
+						view === undefined ? null : jsxs("div", { style: MCP_COLUMNS_STYLE, children: [
+							column("global", t("mcpGlobal"), t("mcpNoGlobal"), view.global),
+							jsxs("section", { style: MCP_COLUMN_STYLE, children: [
+								jsx("strong", { children: t("mcpLocal") }),
+								view.local.length === 0 ? jsx("p", { style: DESCRIPTION_STYLE, children: t("mcpNoLocal") }) : jsx("ul", { style: LIST_STYLE, children: view.local.map((server) => serverBlock(server, "local", handlers)) }),
+								jsx("button", { type: "button", style: BUTTON_STYLE, "aria-label": t("mcpAdd"), onClick: () => setFormOpen((old) => !old), children: t("mcpAdd") }),
+								formOpen ? jsxs("div", { style: MCP_FORM_STYLE, children: [
+									field(t("mcpAddName"), "name", "my-server"),
+									jsxs("label", { style: MCP_FIELD_STYLE, children: [
+										jsx("span", { style: DESCRIPTION_STYLE, children: t("mcpAddScope") }),
+										jsxs("select", { value: form.scope, style: MCP_INPUT_STYLE, onChange: (event) => { const value = event.currentTarget.value; setForm((old) => ({ ...old, scope: value })); }, children: [
+											jsx("option", { value: "workspace", children: t("mcpAddWorkspace") }),
+											jsx("option", { value: "global", children: t("mcpAddGlobal") }),
+										] }),
+									] }),
+									jsxs("label", { style: MCP_FIELD_STYLE, children: [
+										jsx("span", { style: DESCRIPTION_STYLE, children: t("mcpAddType") }),
+										jsxs("select", { value: form.type, style: MCP_INPUT_STYLE, onChange: (event) => { const value = event.currentTarget.value; setForm((old) => ({ ...old, type: value })); }, children: [
+											jsx("option", { value: "stdio", children: t("mcpAddStdio") }),
+											jsx("option", { value: "http", children: t("mcpAddHttp") }),
+										] }),
+									] }),
+									form.type === "http" ? field(t("mcpAddUrl"), "url", "https://example.com/mcp") : null,
+									form.type === "http" ? null : field(t("mcpAddCommand"), "command", "npx"),
+									form.type === "http" ? null : field(t("mcpAddArgs"), "args", "-y @modelcontextprotocol/server-filesystem ."),
+									jsx("button", { type: "button", style: BUTTON_STYLE, onClick: submit, children: t("mcpAddSubmit") }),
+								] }) : null,
 							] }),
-							jsxs("label", { style: MCP_FIELD_STYLE, children: [
-								jsx("span", { style: DESCRIPTION_STYLE, children: t("mcpAddType") }),
-								jsxs("select", { value: form.type, style: MCP_INPUT_STYLE, onChange: (event) => { const value = event.currentTarget.value; setForm((old) => ({ ...old, type: value })); }, children: [
-									jsx("option", { value: "stdio", children: t("mcpAddStdio") }),
-									jsx("option", { value: "http", children: t("mcpAddHttp") }),
-								] }),
-							] }),
-							form.type === "http" ? field(t("mcpAddUrl"), "url", "https://example.com/mcp") : null,
-							form.type === "http" ? null : field(t("mcpAddCommand"), "command", "npx"),
-							form.type === "http" ? null : field(t("mcpAddArgs"), "args", "-y @modelcontextprotocol/server-filesystem ."),
-							jsx("button", { type: "button", style: BUTTON_STYLE, onClick: submit, children: t("mcpAddSubmit") }),
 						] }),
 						notice === null ? null : jsx("p", { role: "alert", style: DESCRIPTION_STYLE, children: t("mcpFailed", { error: notice }) }),
 					],
