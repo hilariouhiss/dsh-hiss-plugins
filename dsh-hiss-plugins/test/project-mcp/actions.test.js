@@ -8,6 +8,7 @@ function deps(calls) {
 		status: async (sessionId) => { calls.push(["status", sessionId]); return { global: [], local: [] }; },
 		setTool: async (sessionId, tool, enabled) => { calls.push(["setTool", sessionId, tool, enabled]); },
 		setServer: async (sessionId, server, enabled) => { calls.push(["setServer", sessionId, server, enabled]); },
+		setGlobalServer: async (sessionId, server, enabled) => { calls.push(["setGlobalServer", sessionId, server, enabled]); },
 		add: async (sessionId, input) => { calls.push(["add", sessionId, input]); },
 		promote: async (sessionId, server) => { calls.push(["promote", sessionId, server]); },
 	};
@@ -23,10 +24,12 @@ test("set-tool, set-server and promote forward their arguments", async () => {
 	const calls = [];
 	await dispatch({ action: "set-tool", sessionId: "s1", tool: "mcp__a__t", enabled: false }, deps(calls));
 	await dispatch({ action: "set-server", sessionId: "s1", server: "matlab", enabled: true }, deps(calls));
+	await dispatch({ action: "set-global-server", sessionId: "s1", server: "matlab", enabled: false }, deps(calls));
 	await dispatch({ action: "promote", sessionId: "s1", server: "matlab" }, deps(calls));
 	assert.deepEqual(calls, [
 		["setTool", "s1", "mcp__a__t", false],
 		["setServer", "s1", "matlab", true],
+		["setGlobalServer", "s1", "matlab", false],
 		["promote", "s1", "matlab"],
 	]);
 });

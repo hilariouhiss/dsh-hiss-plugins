@@ -239,18 +239,38 @@ async function runMcp(ctx, invocation) {
 }
 /**
  * The servers configured outside this workspace, so the dialog can list one that
- * currently exposes no tools. The manager is optional: a profile without it falls
- * back to whatever the tool names reveal.
+ * currently exposes no tools and offer its master switch. The manager is optional:
+ * a profile without it falls back to whatever the tool names reveal.
+ *
+ * A name still declared by the workspace is not filtered out: a server registered
+ * globally while its local copy is switched off must appear in the global column,
+ * which is the whole point of "register globally".
+ *
  * @param {object} ctx - host context.
- * @param {string[]} workspaceServers - names this workspace declares.
- * @returns {string[]} global server names, workspace ones excluded.
+ * @returns {{ name: string, managed: boolean, enabled: boolean }[]} the manager's servers.
  */
-function globalServerNames(ctx, workspaceServers) {
+function globalServersOf(ctx) {
 	const manager = serviceOf(ctx, "mcpManager");
 	if (manager === undefined || typeof manager.list !== "function") return [];
 	return manager.list()
-		.map((entry) => entry?.name)
-		.filter((entry) => typeof entry === "string" && !workspaceServers.includes(entry));
+		.filter((entry) => typeof entry?.name === "string")
+		.map((entry) => ({ name: entry.name, managed: true, enabled: entry.status?.state !== "disabled" }));
+}
+
+/**
+ * Wait for the manager to report a server the settings just wrote, so the dialog
+ * shows it where it now lives instead of one beat late.
+ * @param {object} ctx - host context.
+ * @param {string} serverName - the server that was just configured.
+ * @returns {Promise<void>} settles after the manager reports it, or after ~2s.
+ */
+async function settleManager(ctx, serverName) {
+	const manager = serviceOf(ctx, "mcpManager");
+	if (manager === undefined || typeof manager.list !== "function") return;
+	for (let attempt = 0; attempt < 40; attempt += 1) {
+		if (manager.list().some((entry) => entry?.name === serverName)) return;
+		await new Promise((resolve) => setTimeout(resolve, 50));
+	}
 }
 
 /** The two-section view for one agent.
@@ -280,7 +300,7 @@ async function viewOf(ctx, agent, cwd, state) {
 		...buildView({
 			cwd,
 			toolNames: toolNamesOf(ctx, agent),
-			globalServers: globalServerNames(ctx, workspaceServers),
+			globalServers: globalServersOf(ctx),
 			workspaceServers,
 			disabledTools,
 			disabledServers,
@@ -397,14 +417,24 @@ export function depsFor(ctx, options = {}) {
 			}
 			return viewOf(ctx, agent, cwd, state);
 		},
+		async setGlobalServer(sessionId, server, enabled) {
+			const { agent, cwd } = agentOf(sessionId);
+			if (!globalServersOf(ctx).some((entry) => entry.name === server)) {
+				throw new Error(`"${server}" is not a server this profile manages globally`);
+			}
+			await settings().update("mcp-manager", { servers: { [server]: { enabled } } });
+			await settleManager(ctx, server);
+			return viewOf(ctx, agent, cwd, await readState(path));
+		},
 		async add(sessionId, input) {
 			const { agent, cwd } = agentOf(sessionId);
 			const serverName = String(input.name ?? "").trim();
 			const entry = entryFromInput(input);
 			validateEntry(serverName, entry, cwd);
 			if (input.scope === "global") {
-				if (globalServerNames(ctx, []).includes(serverName)) throw new Error(`"${serverName}" is already a global MCP server`);
+				if (globalServersOf(ctx).some((server) => server.name === serverName)) throw new Error(`"${serverName}" is already a global MCP server`);
 				await settings().update("mcp-manager", { servers: { [serverName]: managerEntry(entry, cwd) } });
+				await settleManager(ctx, serverName);
 			} else {
 				const configPath = (await findConfigPath(cwd)) ?? join(resolve(cwd), ".mcp.json");
 				await mutate(async () => {
@@ -428,6 +458,7 @@ export function depsFor(ctx, options = {}) {
 			const projectDir = dirname(resolve(configPath));
 			validateEntry(serverName, entry, projectDir);
 			await settings().update("mcp-manager", { servers: { [serverName]: managerEntry(entry, projectDir) } });
+			await settleManager(ctx, serverName);
 			// The global copy now serves this server; every workspace copy would double the tools.
 			const state = await mutate(async () => {
 				const next = withServer(await readState(path), cwd, serverName, false);

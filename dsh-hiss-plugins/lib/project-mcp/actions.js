@@ -33,14 +33,16 @@ export async function dispatch(body, deps) {
 	if (typeof action !== "string") return refusal("unknown-action", "unknown action \"undefined\"");
 	try {
 		if (action === "status") return { ok: true, value: await deps.status(sessionId) };
-		if (action === "set-tool" || action === "set-server") {
+		if (action === "set-tool" || action === "set-server" || action === "set-global-server") {
 			if (typeof body.enabled !== "boolean") return refusal("invalid-request", "enabled must be a boolean");
 			const field = action === "set-tool" ? "tool" : "server";
 			const name = body[field];
 			if (typeof name !== "string" || name === "") return refusal("invalid-request", `${field} is required`);
 			const value = action === "set-tool"
 				? await deps.setTool(sessionId, name, body.enabled)
-				: await deps.setServer(sessionId, name, body.enabled);
+				: action === "set-server"
+					? await deps.setServer(sessionId, name, body.enabled)
+					: await deps.setGlobalServer(sessionId, name, body.enabled);
 			return { ok: true, value };
 		}
 		if (action === "add-server") {

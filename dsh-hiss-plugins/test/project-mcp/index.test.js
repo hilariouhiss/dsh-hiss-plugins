@@ -395,10 +395,11 @@ function workspaceHost(cwd, options = {}) {
 		settings: {
 			update(ns, patch) {
 				calls.settings.push([ns, patch]);
+				options.onSettings?.(ns, patch);
 				return Promise.resolve();
 			},
 		},
-		mcpManager: { list: () => [{ name: "cg" }] },
+		mcpManager: { list: () => (options.managerList?.() ?? [{ name: "cg" }]) },
 		get(key) {
 			return this[key];
 		},
@@ -507,4 +508,37 @@ test("the dialog route reads tools only through its own injection", async () => 
 	const answer = JSON.parse(response.body);
 	assert.equal(answer.ok, true, JSON.stringify(answer));
 	assert.equal(answer.value.cwd, cwd);
+});
+test("a global server switch writes the manager entry", async () => {
+	const cwd = dialogProject({});
+	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
+	const { ctx, calls } = workspaceHost(cwd);
+	const view = await depsFor(ctx, { path: join(dir, "state.json") }).setGlobalServer("s1", "cg", false);
+	assert.deepEqual(calls.settings, [["mcp-manager", { servers: { cg: { enabled: false } } }]]);
+	assert.equal(view.global[0].name, "cg");
+});
+
+test("a switch on an unmanaged global server is refused", async () => {
+	const cwd = dialogProject({});
+	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
+	const { ctx, calls } = workspaceHost(cwd);
+	await assert.rejects(() => depsFor(ctx, { path: join(dir, "state.json") }).setGlobalServer("s1", "codegraph", false), /not a server this profile manages/u);
+	assert.deepEqual(calls.settings, []);
+});
+
+test("promote registers the server globally and shows it there at once", async () => {
+	const cwd = dialogProject({ matlab: { command: "npx", args: ["-y", "m"] } });
+	const dir = mkdtempSync(join(tmpdir(), "project-mcp-state-"));
+	const path = join(dir, "state.json");
+	const registered = [];
+	const { ctx, calls } = workspaceHost(cwd, {
+		managerList: () => (registered.length === 0 ? [{ name: "cg" }] : [{ name: "cg" }, { name: "matlab" }]),
+		onSettings: () => registered.push("matlab"),
+	});
+	const view = await depsFor(ctx, { path }).promote("s1", "matlab");
+	assert.deepEqual(calls.settings, [["mcp-manager", {
+		servers: { matlab: { transport: "stdio", command: "npx", args: ["-y", "m"], env: {}, cwd, enabled: true } },
+	}]]);
+	assert.deepEqual(view.local, [{ name: "matlab", enabled: false, tools: [] }], "the local copy is now off");
+	assert.deepEqual(view.global.find((server) => server.name === "matlab"), { name: "matlab", managed: true, enabled: true, tools: [] }, "the global copy is listed");
 });
