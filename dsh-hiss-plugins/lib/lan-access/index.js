@@ -52,7 +52,11 @@ export function apply(ctx, config = {}) {
 			connectionCtx.effect(() => webServer.register({
 				kind: "exact",
 				path: PAGE_PATH,
-				handler: (request, response) => servePage(request, response, { state, connection, addresses: lanAddresses() }),
+				// Hosts from 0.2.2 on admit every route themselves and hand the handler the
+				// admitted Peer; the page carries a pairing secret, so the requirement is
+				// declared here instead of being re-derived inside the handler.
+				auth: "required",
+				handler: (request, response, peer) => servePage(request, response, { state, connection, addresses: lanAddresses(), peer }),
 			}), "lan-access.page");
 			try {
 				state.pageUrl = new URL(PAGE_PATH, webServer.getOrigin()).href;
@@ -161,22 +165,27 @@ export function report(state, connection, addresses) {
 }
 
 /**
- * Serve the QR page to an authenticated owner only: it carries the launch token.
+ * Serve the QR page to an authenticated owner only: it carries the pairing secret.
  * @param {import("node:http").IncomingMessage} request - the page request.
  * @param {import("node:http").ServerResponse} response - the answer.
- * @param {{ state: object, connection: object, addresses: { name: string, address: string }[] }} deps - listener state, browser auth, and the LAN addresses to show.
+ * @param {{ state: object, connection: object, addresses: { name: string, address: string }[], peer?: object }} deps - listener state, browser auth, the LAN addresses to show, and the Peer the Host already admitted.
  */
-export function servePage(request, response, { state, connection, addresses }) {
-	let admission;
-	try {
-		admission = connection.admit(request);
-	} catch {
-		admission = { rejection: 401 };
-	}
-	if (admission.rejection !== undefined) {
-		response.writeHead(admission.rejection, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
-		response.end(admission.rejection === 401 ? "Open this page from the DSH window on this computer.\n" : "forbidden\n");
-		return;
+export function servePage(request, response, { state, connection, addresses, peer }) {
+	// Hosts from 0.2.2 on move browser auth into the route and hand the handler the
+	// admitted Peer; asking `connection.admit` again for that same request fails there.
+	// An older Host admits no route, so the handler stays the only gate and checks.
+	if (peer === undefined) {
+		let admission;
+		try {
+			admission = connection.admit(request);
+		} catch {
+			admission = { rejection: 401 };
+		}
+		if (admission.rejection !== undefined) {
+			response.writeHead(admission.rejection, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+			response.end(admission.rejection === 401 ? "Open this page from the DSH window on this computer.\n" : "forbidden\n");
+			return;
+		}
 	}
 	let embed = false;
 	try {

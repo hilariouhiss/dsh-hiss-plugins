@@ -118,6 +118,11 @@ test("the row declares the webServer service, registers /lan and the QR page", a
 	assert.equal(row.calls.routes.length, 1);
 	assert.equal(row.calls.routes[0].kind, "exact");
 	assert.equal(row.calls.routes[0].path, "/lan-access");
+	assert.equal(row.calls.routes[0].auth, "required", "the page carries the pairing secret, so the route asks for an admitted Peer");
+	const page = responseOf();
+	row.calls.routes[0].handler({ headers: {}, url: "/lan-access" }, page, { principal: { kind: "owner" } });
+	assert.equal(page.captured.status, 200, "an admitted Peer is served without a second cookie check");
+	assert.match(page.captured.headers["content-type"], /text\/html/u);
 });
 
 test("/lan lists the current LAN address, the QR page and the cookie lifetime", async (t) => {
@@ -162,7 +167,7 @@ test("a Host already bound to a network address is reported without a second lis
 	assert.equal(row.calls.routes.length, 1, "the QR page is still useful in the direct case");
 });
 
-test("the QR page refuses an unadmitted request and serves the admitted one", () => {
+test("a host that admits no route leaves the cookie check to the page", () => {
 	const state = { status: "listening", port: 7505, pair: "PAIR" };
 	const connection = {
 		authenticatedUrl: (base) => `${base}?token=T`,
@@ -181,6 +186,24 @@ test("the QR page refuses an unadmitted request and serves the admitted one", ()
 	assert.match(allowed.captured.body, /http:\/\/192\.168\.102\.124:7505\/\?pair=PAIR/u);
 	assert.ok(!allowed.captured.body.includes("172.19.112.1"), "a virtual adapter is not listed at all");
 	assert.ok(!allowed.captured.body.includes("签名 cookie"), "the popup below the frame carries that hint");
+});
+
+test("an admitted Peer needs no second check, which a 0.2.2+ Host would refuse", () => {
+	const connection = {
+		authenticatedUrl: (base) => `${base}?token=T`,
+		admit: () => {
+			throw new Error("the same cookie no longer passes a repeated admit");
+		},
+	};
+	const page = responseOf();
+	servePage({ headers: {}, url: "/lan-access?embed=1" }, page, {
+		state: { status: "listening", port: 7505, pair: "PAIR" },
+		connection,
+		addresses: ADDRESSES,
+		peer: { principal: { kind: "owner" } },
+	});
+	assert.equal(page.captured.status, 200, "the Host admitted this request and passed its Peer");
+	assert.equal(page.captured.body.split("<svg ").length - 1, 1, "only the reachable adapter gets a QR image");
 });
 
 test("the embed variant drops the page heading for the in-app popup", () => {

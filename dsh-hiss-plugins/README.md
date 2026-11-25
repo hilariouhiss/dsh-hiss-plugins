@@ -363,7 +363,7 @@ colgrep command:"init" / command:"status" / command:"clear"
 - **界面入口**：侧边栏底部、设置/用户之上新增一行「手机连接」（收起成 56px 窄条时是手机图标）。点它会先确认 `lan-access` 行已启用（没启用就经 `pluginManager.setPluginEnabled` 开启），然后在应用内弹出二维码弹窗；弹窗用同一个 Host 源上的 `/lan-access?embed=1` 页面（iframe），因此复用同一套 cookie 鉴权。若 profile 没有 HMR、开启需要重启，弹窗会直接说明而不是给一个空二维码。
 - **配对（为什么二维码里没有 host token）**：二维码里放的是网关自己的一次性配对串 `?pair=…`，不是 Host 的 launch token。手机打开它时，**网关自己**拿当前进程的 token 去 loopback 换一次 cookie，把换来的 Host cookie 记在这个客户端地址名下，之后这个 IP 的每个请求（含 WebSocket upgrade）都由网关补上该 cookie。于是手机端既不需要保存 Host token，也不依赖浏览器 cookie 策略；换进程后重新打开二维码页即可（旧的 `pair` 会得到明确的 "pairing expired" 而不是 Host 那句通用 401）。
 - **诊断**：在 profile 的 `cordis.patch.yml` 里给该行加 `config: { debug: true }`，网关会把"配对成功/失败"和所有 `>=400` 的转发结果写到 `~/.dsh/lan-access.log`（256KB 上限、不记录 token/pair 值）。默认关闭。
-- **QR 页**：Host 自己的 loopback 端口上注册了 `/lan-access`，把当前每个 LAN 地址的配对 URL 渲染成内联 SVG 二维码；页面只认 `dsh-client-connection` 的 cookie（`admit`），所以配对串不会出现在未认证的请求里。`?embed=1` 去掉页头与边距，供弹窗内嵌。二维码编码器（`lib/lan-access/qr.js`）是本包自带的字节模式实现，输出已对照独立编码器逐模块校验。
+- **QR 页**：Host 自己的 loopback 端口上注册了 `/lan-access`，把当前每个 LAN 地址的配对 URL 渲染成内联 SVG 二维码。这条路由此声明 `auth: "required"`：DSH 0.2.2 起 Host 自己认证路由、并把已认证的 Peer 交给 handler（页面不再重复认证——重复调 `connection.admit` 在新版 Host 上只会拿到 401）；更早的 Host 没有路由级认证，handler 才用 `connection.admit` 兜底。所以配对串不会出现在未认证的请求里。`?embed=1` 去掉页头与边距，供弹窗内嵌。二维码编码器（`lib/lan-access/qr.js`）是本包自带的字节模式实现，输出已对照独立编码器逐模块校验。
 - **不重复开监听**：Host 本身已经绑在网络地址上时（`dsh web --host <地址>`），`/lan` 直接报那个地址，不再开第二个监听。
 - **认证就是 Host 自己那套**：token → 签名 cookie，本功能不新增鉴权、也不放宽围栏。`Origin` 只在它与入站 `Host` 同源时才改写，跨站请求仍被 Host 的 Origin / `sec-fetch-site` 检查拒绝。
 - **防火墙**：Windows 第一次监听会拦，管理员 PowerShell 放行一次：
